@@ -26,6 +26,7 @@ require_once SDC_PB_DIR . 'includes/class-sdc-field-adapter.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-store.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-schema.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-rest.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-renderer.php';
 
 /**
  * Boot the plugin once all plugins are loaded, so the host field plugin
