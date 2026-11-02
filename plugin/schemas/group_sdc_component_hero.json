@@ -1,0 +1,55 @@
+{
+    "key": "group_sdc_component_hero",
+    "title": "Hero",
+    "sdc_description": "Seitenkopf mit Überschrift, Unterzeile und optionalem Handlungsaufruf.",
+    "sdc_icon": "cover-image",
+    "sdc_version": 1,
+    "fields": [
+        {
+            "key": "field_sdc_hero_heading",
+            "label": "Überschrift",
+            "name": "heading",
+            "type": "text",
+            "instructions": "Die Hauptaussage der Seite.",
+            "required": 1,
+            "default_value": "",
+            "placeholder": ""
+        },
+        {
+            "key": "field_sdc_hero_subline",
+            "label": "Unterzeile",
+            "name": "subline",
+            "type": "textarea",
+            "instructions": "Optional. Ein bis zwei Sätze, die die Überschrift einordnen.",
+            "required": 0,
+            "rows": 2,
+            "default_value": "",
+            "placeholder": ""
+        },
+        {
+            "key": "field_sdc_hero_cta",
+            "label": "Handlungsaufruf",
+            "name": "cta",
+            "type": "link",
+            "instructions": "Optional. Linktext und Ziel in einem Feld.",
+            "required": 0,
+            "return_format": "array"
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "sdc_component",
+                "operator": "==",
+                "value": "1"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "active": true,
+    "description": ""
+}
