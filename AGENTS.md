@@ -12,10 +12,14 @@ Das spezifische und allgemeine Wissen für dieses Projekt liegt im **Obsidian-Va
 
 ## Projekt-Kontext
 
-Unterprojekt von PHOENIXSEO — SDC-Page-Builder (ehemals eigenständiges Projekt, 2026-08-26 hierher verschoben; Desktop-Projekt archiviert)
+Unterprojekt von PHOENIXSEO — **SDC Page Builder**: komponentenbasierter Page-Builder für WordPress, der ACF- oder SCF-Felder als Bausteine nutzt und Seiten als ein JSON-Dokument speichert.
+
+- **Repo:** `phoenixseo/sdc-page-builder` (privat bis zur ersten funktionierenden Version)
+- **Stand:** M1 (Datenschicht) grün — 20/20 Prüfungen, `plugin/tests/m1-verify.php`
+- **Altlasten:** `../sdc-page-builder-alt/` — eingestellter Pods-Repeater-Weg, nicht mehr in Arbeit
 
 ## Hinweise
 
 - Workspace-Ordner: `workspaces/phoenixseo/sdc-page-builder/`
-- Teil des Hauptprojekts **PHOENIXSEO** (siehe `workspaces/phoenixseo/AGENTS.md`).
-- Dies ist eine generische Vorlage. Kundenspezifische Details (Deployment, Stack, Prozesse) können hier ergänzt werden.
+- In diesem Ordner liegt nur, was zum aktuellen Projekt gehört. Alles zum Pods-Fork steht in `sdc-page-builder-alt/`.
+- Plugin-Code unter `plugin/`, Teststack unter `test-scf/`.
