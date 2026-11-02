@@ -1,0 +1,167 @@
+{
+ "probed": {
+  "pods": {
+   "slug": "pods",
+   "name": "Pods &#8211; Custom Content Types and Fields",
+   "version": "3.3.9.2",
+   "active_installs": 100000,
+   "num_ratings": 418,
+   "rating": 96,
+   "last_updated": "2026-08-31 5:08pm GMT",
+   "requires": "6.3",
+   "tested": "7.1.4",
+   "author": "<a href=\"https://profiles.wordpress.org/sc0ttkclark/\">Scott Kingsley Clark</a>",
+   "downloaded": null
+  },
+  "advanced-custom-fields": {
+   "slug": "advanced-custom-fields",
+   "name": "Advanced Custom Fields (ACF®)",
+   "version": "6.8.10",
+   "active_installs": 2000000,
+   "num_ratings": 1440,
+   "rating": 90,
+   "last_updated": "2026-09-10 5:30pm GMT",
+   "requires": "6.2",
+   "tested": "7.1.4",
+   "author": "<a href=\"https://profiles.wordpress.org/wpengine/\">WP Engine</a>",
+   "downloaded": null
+  },
+  "secure-custom-fields": {
+   "slug": "secure-custom-fields",
+   "name": "Secure Custom Fields",
+   "version": "6.9.7",
+   "active_installs": 100000,
+   "num_ratings": 69,
+   "rating": 96,
+   "last_updated": "2026-10-21 7:14pm GMT",
+   "requires": "6.2",
+   "tested": "7.1.4",
+   "author": "<a href=\"https://profiles.wordpress.org/wordpressdotorg/\">WordPress.org</a>",
+   "downloaded": null
+  },
+  "meta-box": {
+   "slug": "meta-box",
+   "name": "Meta Box &#8211; A Framework for Dynamic Websites",
+   "version": "5.15.3",
+   "active_installs": 500000,
+   "num_ratings": 165,
+   "rating": 96,
+   "last_updated": "2026-10-20 2:20am GMT",
+   "requires": "6.7",
+   "tested": "7.1.4",
+   "author": "<a href=\"https://profiles.wordpress.org/metabox/\">Meta Box</a>",
+   "downloaded": null
+  },
+  "carbon-fields": {
+   "slug": "carbon-fields",
+   "error": "HTTP Error 404: Not Found"
+  },
+  "cmb2": {
+   "slug": "cmb2",
+   "name": "CMB2",
+   "version": "2.13.5",
+   "active_installs": 300000,
+   "num_ratings": 91,
+   "rating": 100,
+   "last_updated": "2026-10-27 1:49am GMT",
+   "requires": "3.8.0",
+   "tested": "7.1.4",
+   "author": "<a href=\"https://profiles.wordpress.org/jtsternberg/\">Justin Sternberg</a>",
+   "downloaded": null
+  },
+  "custom-field-suite": {
+   "slug": "custom-field-suite",
+   "error": "HTTP Error 404: Not Found"
+  },
+  "types": {
+   "slug": "types",
+   "error": "HTTP Error 404: Not Found"
+  },
+  "acf-extended": {
+   "slug": "acf-extended",
+   "name": "Advanced Custom Fields: Extended",
+   "version": "0.9.2.8",
+   "active_installs": 100000,
+   "num_ratings": 132,
+   "rating": 96,
+   "last_updated": "2026-10-19 1:23pm GMT",
+   "requires": "4.9",
+   "tested": "7.1.4",
+   "author": "<a href=\"https://profiles.wordpress.org/hwk-fr/\">Konrad Chmielewski</a>",
+   "downloaded": null
+  },
+  "codeideal-open-fields": {
+   "slug": "codeideal-open-fields",
+   "name": "Codeideal Open Fields",
+   "version": "0.4.3",
+   "active_installs": 100,
+   "num_ratings": 1,
+   "rating": 100,
+   "last_updated": "2026-07-07 3:34pm GMT",
+   "requires": "6.0",
+   "tested": "7.0.8",
+   "author": "<a href=\"https://profiles.wordpress.org/shayancode/\">shayancode</a>",
+   "downloaded": null
+  },
+  "openfields": {
+   "slug": "openfields",
+   "error": "HTTP Error 404: Not Found"
+  },
+  "jetengine": {
+   "slug": "jetengine",
+   "error": "HTTP Error 404: Not Found"
+  },
+  "fieldmanager": {
+   "slug": "fieldmanager",
+   "error": "HTTP Error 404: Not Found"
+  },
+  "lazy-blocks": {
+   "slug": "lazy-blocks",
+   "name": "Custom Block Builder &#8211; Lazy Blocks",
+   "version": "4.5.1",
+   "active_installs": 20000,
+   "num_ratings": 80,
+   "rating": 98,
+   "last_updated": "2026-10-26 5:42pm GMT",
+   "requires": "6.2",
+   "tested": "7.2",
+   "author": "<a href=\"https://profiles.wordpress.org/nko/\">nK</a>",
+   "downloaded": null
+  },
+  "custom-post-type-ui": {
+   "slug": "custom-post-type-ui",
+   "name": "Custom Post Type UI",
+   "version": "1.19.3",
+   "active_installs": 1000000,
+   "num_ratings": 276,
+   "rating": 92,
+   "last_updated": "2026-07-14 3:37pm GMT",
+   "requires": "6.6",
+   "tested": "7.0.8",
+   "author": "<a href=\"https://profiles.wordpress.org/webdevstudios/\">webdevstudios</a>",
+   "downloaded": null
+  },
+  "pods-alternative-cache": {
+   "slug": "pods-alternative-cache",
+   "name": "Pods Alternative Cache",
+   "version": "2.3.0",
+   "active_installs": 5000,
+   "num_ratings": 6,
+   "rating": 86,
+   "last_updated": "2026-02-24 2:21pm GMT",
+   "requires": "6.3",
+   "tested": "7.0.8",
+   "author": "<a href=\"https://profiles.wordpress.org/keraweb/\">Jory Hogeveen</a>",
+   "downloaded": null
+  },
+  "advanced-custom-fields-pro": {
+   "slug": "advanced-custom-fields-pro",
+   "error": "HTTP Error 404: Not Found"
+  },
+  "meta-box-builder": {
+   "slug": "meta-box-builder",
+   "error": "HTTP Error 404: Not Found"
+  }
+ },
+ "search_hits": {}
+}

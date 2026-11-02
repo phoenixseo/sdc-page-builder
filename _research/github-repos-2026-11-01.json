@@ -1,0 +1,74 @@
+{
+ "pods-framework/pods": {
+  "stars": 1119,
+  "forks": 267,
+  "open_issues": 672,
+  "pushed": "2026-11-01",
+  "archived": false,
+  "license": "GPL-2.0",
+  "desc": "The Pods Framework is a Content Development Framework for WordPress - "
+ },
+ "htmlburger/carbon-fields": {
+  "stars": 1546,
+  "forks": 256,
+  "open_issues": 295,
+  "pushed": "2026-08-27",
+  "archived": false,
+  "license": "NOASSERTION",
+  "desc": "WordPress Custom Fields Library \u2728"
+ },
+ "CMB2/CMB2": {
+  "stars": 3011,
+  "forks": 560,
+  "open_issues": 270,
+  "pushed": "2026-11-01",
+  "archived": false,
+  "license": "GPL-3.0",
+  "desc": "CMB2 is a developer's toolkit for building metaboxes, custom fields, a"
+ },
+ "wpmetabox/meta-box": {
+  "stars": 1247,
+  "forks": 406,
+  "open_issues": 75,
+  "pushed": "2026-10-31",
+  "archived": false,
+  "license": null,
+  "desc": "The best plugin for WordPress custom fields and custom meta boxes"
+ },
+ "novincode/openfields": {
+  "stars": 60,
+  "forks": 2,
+  "open_issues": 5,
+  "pushed": "2026-07-07",
+  "archived": false,
+  "license": "NOASSERTION",
+  "desc": "Wordpress Custom Fields ( Open Source & Free )"
+ },
+ "AdvancedCustomFields/acf": {
+  "stars": 948,
+  "forks": 197,
+  "open_issues": 552,
+  "pushed": "2026-09-10",
+  "archived": false,
+  "license": null,
+  "desc": "Advanced Custom Fields "
+ },
+ "WordPress/secure-custom-fields": {
+  "stars": 135,
+  "forks": 73,
+  "open_issues": 60,
+  "pushed": "2026-10-30",
+  "archived": false,
+  "license": "NOASSERTION",
+  "desc": "Secure Custom Fields"
+ },
+ "YahnisElsts/plugin-update-checker": {
+  "stars": 2578,
+  "forks": 435,
+  "open_issues": 102,
+  "pushed": "2026-09-26",
+  "archived": false,
+  "license": "MIT",
+  "desc": "A custom update checker for WordPress plugins. Useful if you don't wan"
+ }
+}

@@ -1,0 +1,62 @@
+{
+    "key": "group_sdc_component_faq",
+    "title": "FAQ",
+    "sdc_description": "Frage-Antwort-Liste mit optionaler Überschrift.",
+    "sdc_icon": "editor-help",
+    "sdc_version": 1,
+    "fields": [
+        {
+            "key": "field_sdc_faq_heading",
+            "label": "Überschrift",
+            "name": "heading",
+            "type": "text",
+            "instructions": "Optional. Leer lassen, wenn die Komponente ohne Titel starten soll.",
+            "required": 0,
+            "default_value": "",
+            "placeholder": ""
+        },
+        {
+            "key": "field_sdc_faq_items",
+            "label": "Einträge",
+            "name": "items",
+            "type": "repeater",
+            "instructions": "Eine Zeile pro Frage.",
+            "required": 0,
+            "layout": "table",
+            "button_label": "Frage hinzufügen",
+            "sub_fields": [
+                {
+                    "key": "field_sdc_faq_item_q",
+                    "label": "Frage",
+                    "name": "q",
+                    "type": "text",
+                    "required": 1
+                },
+                {
+                    "key": "field_sdc_faq_item_a",
+                    "label": "Antwort",
+                    "name": "a",
+                    "type": "textarea",
+                    "required": 1,
+                    "rows": 3
+                }
+            ]
+        }
+    ],
+    "location": [
+        [
+            {
+                "param": "sdc_component",
+                "operator": "==",
+                "value": "1"
+            }
+        ]
+    ],
+    "menu_order": 0,
+    "position": "normal",
+    "style": "default",
+    "label_placement": "top",
+    "instruction_placement": "label",
+    "active": true,
+    "description": ""
+}

@@ -1,0 +1,990 @@
+{
+ "advanced-custom-fields": {
+  "name": "Advanced Custom Fields (ACF®)",
+  "installs": ""
+ },
+ "pods": {
+  "name": "Pods &#8211; Custom Content Types and Fields",
+  "installs": "100,000"
+ },
+ "secure-custom-fields": {
+  "name": "Secure Custom Fields",
+  "installs": "100,000"
+ },
+ "advanced-custom-fields-font-awesome": {
+  "name": "Advanced Custom Fields: Font Awesome Field",
+  "installs": "90,000"
+ },
+ "advanced-custom-fields-table-field": {
+  "name": "Table Field Add-on for ACF and SCF",
+  "installs": "50,000"
+ },
+ "forminator": {
+  "name": "Forminator Forms – Contact Form, Payment Form &amp; Custom Form Builder",
+  "installs": "600,000"
+ },
+ "smart-custom-fields": {
+  "name": "Smart Custom Fields",
+  "installs": "50,000"
+ },
+ "flexible-checkout-fields": {
+  "name": "Flexible Checkout Fields for WooCommerce &#8211; WooCommerce Checkout Manager",
+  "installs": "80,000"
+ },
+ "custom-post-type-ui": {
+  "name": "Custom Post Type UI",
+  "installs": ""
+ },
+ "acf-extended": {
+  "name": "Advanced Custom Fields: Extended",
+  "installs": "100,000"
+ },
+ "woo-custom-product-addons": {
+  "name": "Product Addons for Woocommerce &#8211; Product Options with Custom Fields",
+  "installs": "30,000"
+ },
+ "wck-custom-fields-and-custom-post-types-creator": {
+  "name": "Custom Post Types and Custom Fields creator &#8211; WCK",
+  "installs": "10,000"
+ },
+ "custom-fields-gutenberg": {
+  "name": "Custom Fields for Gutenberg",
+  "installs": "1,000"
+ },
+ "custom-field-template": {
+  "name": "Custom Field Template",
+  "installs": "30,000"
+ },
+ "simple-custom-post-order": {
+  "name": "Simple Custom Post Order",
+  "installs": "300,000"
+ },
+ "display-a-meta-field-as-block": {
+  "name": "Meta Field Block &#8211; Display Custom Fields for ACF, Meta Box and More",
+  "installs": "10,000"
+ },
+ "woocommerce-product-addon": {
+  "name": "PPOM &#8211; Product Addons &amp; Custom Fields for WooCommerce",
+  "installs": "20,000"
+ },
+ "custom-permalinks": {
+  "name": "Custom Permalinks",
+  "installs": "100,000"
+ },
+ "advanced-product-fields-for-woocommerce": {
+  "name": "Advanced Product Fields (Product Addons) for WooCommerce",
+  "installs": "50,000"
+ },
+ "custom-field-finder": {
+  "name": "Custom field finder",
+  "installs": "2,000"
+ },
+ "acf-typography-field": {
+  "name": "Advanced Custom Fields: Typography Field",
+  "installs": "3,000"
+ },
+ "acf-image-aspect-ratio-crop": {
+  "name": "Image Aspect Ratio Crop Field for Advanced Custom Fields",
+  "installs": "20,000"
+ },
+ "custom-checkout-fields-for-woocommerce": {
+  "name": "Custom Checkout Fields for WooCommerce",
+  "installs": "500"
+ },
+ "product-input-fields-for-woocommerce": {
+  "name": "Product Input Fields for WooCommerce",
+  "installs": "4,000"
+ },
+ "calculated-fields-form": {
+  "name": "Calculated Fields Form &#8211; AI Form Builder for WordPress &#8211; Contact, Payment, Quote, Quiz &amp; More",
+  "installs": "40,000"
+ },
+ "flexible-product-fields": {
+  "name": "Flexible Product Fields (WooCommerce Product Addons) &#8211; WooCommerce Product Page Editor",
+  "installs": "10,000"
+ },
+ "ele-custom-skin": {
+  "name": "ECS &#8211; Ele Custom Skin for Elementor",
+  "installs": "100,000"
+ },
+ "custom-fields-account-registration-for-woocommerce": {
+  "name": "Custom Fields Account Registration For Woocommerce",
+  "installs": "800"
+ },
+ "admin-columns-for-acf-fields": {
+  "name": "Admin Columns for ACF Fields",
+  "installs": "9,000"
+ },
+ "wc-fields-factory": {
+  "name": "WC Fields Factory",
+  "installs": "7,000"
+ },
+ "woo-checkout-field-editor-pro": {
+  "name": "Checkout Field Editor (Checkout Manager) for WooCommerce",
+  "installs": "400,000"
+ },
+ "custom-sidebars": {
+  "name": "Custom Sidebars &#8211; Dynamic Sidebar Classic Widget Area Manager",
+  "installs": "100,000"
+ },
+ "mb-custom-post-type": {
+  "name": "MB Custom Post Types &amp; Custom Taxonomies",
+  "installs": "10,000"
+ },
+ "acf-field-blocks": {
+  "name": "Blocks for ACF Fields — Display Custom Fields in the Block Editor",
+  "installs": "2,000"
+ },
+ "custom-order-numbers-for-woocommerce": {
+  "name": "Custom Order Numbers for WooCommerce",
+  "installs": "20,000"
+ },
+ "profile-extra-fields": {
+  "name": "Profile Extra Fields by BestWebSoft",
+  "installs": "1,000"
+ },
+ "woo-extra-product-options": {
+  "name": "Extra Product Options For WooCommerce | Custom Product Addons and Fields",
+  "installs": "30,000"
+ },
+ "custom-taxonomy-order-ne": {
+  "name": "Custom Taxonomy Order",
+  "installs": "50,000"
+ },
+ "all-in-one-seo-pack": {
+  "name": "All in One SEO – AI SEO Plugin to Boost SEO Rankings &amp; Traffic (Schema, Local SEO, Sitemap &amp; SEO Insights)",
+  "installs": ""
+ },
+ "masks-form-fields": {
+  "name": "Masks Form Fields",
+  "installs": "9,000"
+ },
+ "wpforms-lite": {
+  "name": "WPForms &#8211; AI Form Builder for WordPress &#8211; Contact Forms, Payment Forms, Survey Form, Quiz &amp; More",
+  "installs": ""
+ },
+ "repeater-field-for-wpforms": {
+  "name": "Repeater Fields for WPForms",
+  "installs": "400"
+ },
+ "panda-pods-repeater-field": {
+  "name": "Panda Pods Repeater Field",
+  "installs": "500"
+ },
+ "repeater-for-gravity-forms": {
+  "name": "Repeater Fields for Gravity Forms",
+  "installs": "1,000"
+ },
+ "repeater-for-elementor": {
+  "name": "Repeater Fields for Elementor Forms",
+  "installs": "700"
+ },
+ "dynamic-elementor-acf-repeater": {
+  "name": "Dynamic ACF Repeater for Elementor",
+  "installs": "1,000"
+ },
+ "advanced-gallery-repeater-fields-for-acf": {
+  "name": "Advanced Gallery &amp; Repeater Fields for ACF",
+  "installs": "700"
+ },
+ "repeater-for-contact-form-7": {
+  "name": "Repeater for Contact Form 7",
+  "installs": "500"
+ },
+ "profile-builder": {
+  "name": "User Profile Builder &#8211; Beautiful User Registration Forms, User Profiles &amp; User Role Editor",
+  "installs": "40,000"
+ },
+ "cf7-conditional-fields": {
+  "name": "Conditional Fields for Contact Form 7",
+  "installs": "100,000"
+ },
+ "ultimate-addons-for-contact-form-7": {
+  "name": "Ultra Addons for Contact Form 7",
+  "installs": "60,000"
+ },
+ "country-code-field-for-elementor-form": {
+  "name": "Country Code For Elementor Form Telephone Field",
+  "installs": "10,000"
+ },
+ "telephone-field-for-elementor-forms": {
+  "name": "Telephone field for Elementor Forms",
+  "installs": "4,000"
+ },
+ "loop-grid-extender-for-elementor-pro": {
+  "name": "Loop Grid Extender for Elementor &#8211; ACF Repeater &amp; Smart Filters",
+  "installs": "1,000"
+ },
+ "addoncraft-repeater-for-elementor-acf": {
+  "name": "Addoncraft Repeater For Elementor ACF",
+  "installs": "100"
+ },
+ "signature-field-for-elementor-forms": {
+  "name": "Signature field for Elementor Forms",
+  "installs": "2,000"
+ },
+ "formidable": {
+  "name": "Formidable Forms – Contact Form, Survey, Quiz, Payment, Calculator Form &amp; Custom Form Builder",
+  "installs": "300,000"
+ },
+ "smart-phone-field-for-gravity-forms": {
+  "name": "Smart phone field for Gravity Forms",
+  "installs": "5,000"
+ },
+ "repeaterly": {
+  "name": "Repeaterly &#8211; ACF Repeater, Flexible Content &amp; Dynamic Tags for Elementor",
+  "installs": "600"
+ },
+ "acf-field-for-contact-form-7": {
+  "name": "ACF Field For CF7",
+  "installs": "10,000"
+ },
+ "repeater2template-for-acf-repeater-and-elementor": {
+  "name": "Repeater2Template Widget for ACF Repeater and Elementor",
+  "installs": "100"
+ },
+ "conditional-fields-for-elementor-form": {
+  "name": "Conditional Fields for Elementor Form &#8211; Apply Conditional Logic",
+  "installs": "10,000"
+ },
+ "mask-form-elementor": {
+  "name": "Input Mask For Elementor Form Fields",
+  "installs": "10,000"
+ },
+ "fluentform": {
+  "name": "Fluent Forms – Customizable Contact Forms, Survey, Quiz, &amp; Conversational Form Builder",
+  "installs": "800,000"
+ },
+ "flash-toolkit": {
+  "name": "Flash Toolkit",
+  "installs": "10,000"
+ },
+ "bp-profile-field-repeater": {
+  "name": "Profile Field Repeater",
+  "installs": "20"
+ },
+ "flexible-shipping": {
+  "name": "Weight Based Shipping Table Rate for WooCommerce – Flexible Shipping",
+  "installs": "100,000"
+ },
+ "woocommerce": {
+  "name": "WooCommerce",
+  "installs": ""
+ },
+ "flexible-table-block": {
+  "name": "Flexible Table Block",
+  "installs": "40,000"
+ },
+ "contact-form-7": {
+  "name": "Contact Form 7",
+  "installs": ""
+ },
+ "flexible-invoices": {
+  "name": "Flexible PDF Invoices for WooCommerce &amp; WordPress",
+  "installs": "6,000"
+ },
+ "wp-flexible-map": {
+  "name": "Flexible Map",
+  "installs": "7,000"
+ },
+ "content-views-query-and-display-post-page": {
+  "name": "Content Views &#8211; Post Grid &amp; Filter (Shortcode, Blocks, Elementor Widgets)",
+  "installs": "100,000"
+ },
+ "flexible-spacer-block": {
+  "name": "Flexible Spacer Block",
+  "installs": "4,000"
+ },
+ "flexible-coupons": {
+  "name": "Flexible PDF Coupons &#8211; Gift Cards &amp; Vouchers for WooCommerce",
+  "installs": "2,000"
+ },
+ "wp-content-copy-protector": {
+  "name": "WP Content Copy Protection &amp; No Right Click",
+  "installs": "100,000"
+ },
+ "acf-content-analysis-for-yoast-seo": {
+  "name": "ACF Content Analysis for Yoast SEO",
+  "installs": "100,000"
+ },
+ "flexible-elementor-panel": {
+  "name": "Flexible Editor Panel for Elementor",
+  "installs": "20,000"
+ },
+ "flexible-layout-preview-image-for-acf": {
+  "name": "Flexible Layout Preview Image for ACF",
+  "installs": "800"
+ },
+ "flexible-quantity-measurement-price-calculator-for-woocommerce": {
+  "name": "Flexible Quantity &amp; Price Calculator for WooCommerce",
+  "installs": "2,000"
+ },
+ "google-site-kit": {
+  "name": "Site Kit by Google &#8211; Analytics, Search Console, AdSense, Speed",
+  "installs": ""
+ },
+ "flexible-shipping-usps": {
+  "name": "Shipping Live Rates for USPS for WooCommerce",
+  "installs": "2,000"
+ },
+ "flexible-refund-and-return-order-for-woocommerce": {
+  "name": "Flexible Refund for WooCommerce – EU One Click Return",
+  "installs": "2,000"
+ },
+ "paid-member-subscriptions": {
+  "name": "Paid Membership Subscriptions &#8211; Effortless Memberships, Recurring Payments &amp; Content Restriction",
+  "installs": "10,000"
+ },
+ "content-egg": {
+  "name": "Content Egg – Affiliate Product Importer &amp; Price Comparison",
+  "installs": "10,000"
+ },
+ "easy-table-of-contents": {
+  "name": "Easy Table of Contents",
+  "installs": "600,000"
+ },
+ "flexible-shipping-ups": {
+  "name": "Shipping Live Rates and Access Points for UPS for WooCommerce",
+  "installs": "7,000"
+ },
+ "flexible-wishlist": {
+  "name": "Flexible Wishlist for WooCommerce &#8211; Ecommerce Wishlist &amp; Save for later",
+  "installs": "700"
+ },
+ "json-content-importer": {
+  "name": "Get Use APIs &#8211; JSON Content Importer",
+  "installs": "5,000"
+ },
+ "shortcodes-ultimate": {
+  "name": "Shortcodes Ultimate &#8211; Content Elements",
+  "installs": "400,000"
+ },
+ "advanced-floating-content-lite": {
+  "name": "Advanced Floating Content Lite",
+  "installs": "7,000"
+ },
+ "flexible-shipping-fedex": {
+  "name": "Shipping Live Rates for FedEx for WooCommerce",
+  "installs": "2,000"
+ },
+ "if-so": {
+  "name": "If-So Dynamic Content – Elementor &amp; All Page Builders Personalization",
+  "installs": "7,000"
+ },
+ "acf-repeater-flexible-content-collapser": {
+  "name": "ACF Repeater &amp; Flexible Content Collapser",
+  "installs": "3,000"
+ },
+ "elementskit-lite": {
+  "name": "ElementsKit Elementor Addons – Advanced Widgets &amp; Templates Addons for Elementor",
+  "installs": ""
+ },
+ "nelio-content": {
+  "name": "Nelio Content &#8211; Editorial Calendar &amp; Social Media Auto-Posting",
+  "installs": "4,000"
+ },
+ "content-slider-block": {
+  "name": "Content Slider Block – Bring your content to life with slides",
+  "installs": "3,000"
+ },
+ "filter-everything": {
+  "name": "Filter Everything&nbsp;— WordPress &amp; WooCommerce Filters",
+  "installs": "50,000"
+ },
+ "advanced-query-loop": {
+  "name": "Advanced Query Loop",
+  "installs": "6,000"
+ },
+ "woocommerce-paypal-payments": {
+  "name": "WooCommerce PayPal Payments",
+  "installs": "800,000"
+ },
+ "structured-content": {
+  "name": "Structured Content (JSON-LD) #wpsc",
+  "installs": "30,000"
+ },
+ "meks-flexible-shortcodes": {
+  "name": "Meks Flexible Shortcodes",
+  "installs": "10,000"
+ },
+ "redux-framework": {
+  "name": "Redux Framework",
+  "installs": "900,000"
+ },
+ "autodescription": {
+  "name": "The SEO Framework – Fast, Automated, Effortless.",
+  "installs": "200,000"
+ },
+ "cubewp-framework": {
+  "name": "CubeWP Framework",
+  "installs": "3,000"
+ },
+ "meta-box": {
+  "name": "Meta Box &#8211; A Framework for Dynamic Websites",
+  "installs": "500,000"
+ },
+ "gdpr-framework": {
+  "name": "The GDPR Framework By Data443",
+  "installs": "10,000"
+ },
+ "genesis-custom-blocks": {
+  "name": "Genesis Custom Blocks",
+  "installs": "10,000"
+ },
+ "seo-by-rank-math": {
+  "name": "Rank Math SEO – AI SEO Tools to Dominate SEO Rankings",
+  "installs": ""
+ },
+ "wordpress-seo": {
+  "name": "Yoast SEO &#8211; Advanced SEO with real-time guidance and built-in AI",
+  "installs": ""
+ },
+ "the-events-calendar": {
+  "name": "The Events Calendar",
+  "installs": "600,000"
+ },
+ "easy-mcp-ai": {
+  "name": "Easy MCP AI – Connect Claude to WordPress: MCP Server for ChatGPT &amp; AI Agents",
+  "installs": "30,000"
+ },
+ "complianz-gdpr": {
+  "name": "Complianz GDPR/CCPA Cookie Consent Banner",
+  "installs": ""
+ },
+ "custom-registration-form-builder-with-submission-manager": {
+  "name": "RegistrationMagic &#8211; Custom Registration Forms, User Registration, Payment, and User Login",
+  "installs": "7,000"
+ },
+ "acf-views": {
+  "name": "Advanced Views &#8211; Display Framework &#8211; Gutenberg/Elementor/Shortcode",
+  "installs": "2,000"
+ },
+ "custom-api-for-wp": {
+  "name": "Custom API for WP",
+  "installs": "1,000"
+ },
+ "wp-all-export": {
+  "name": "WP All Export – Drag &amp; Drop Export to Any Custom CSV, XML &amp; Excel",
+  "installs": "100,000"
+ },
+ "ultimate-dashboard": {
+  "name": "Ultimate Dashboard &#8211; Custom WordPress Dashboard",
+  "installs": "50,000"
+ },
+ "navz-photo-gallery": {
+  "name": "ACF Photo Gallery Field",
+  "installs": "60,000"
+ },
+ "wp-seopress": {
+  "name": "SEOPress &#8211; AI SEO Plugin &amp; On-site SEO",
+  "installs": "300,000"
+ },
+ "bit-form": {
+  "name": "Bit Form &#8211; Contact Form, Payment Forms, Multi Step Forms, Calculator &amp; Custom Form Builder",
+  "installs": "10,000"
+ },
+ "smart-custom-display-name": {
+  "name": "Smart Custom Display Name",
+  "installs": "200"
+ },
+ "so-widgets-bundle": {
+  "name": "SiteOrigin Widgets Bundle",
+  "installs": "400,000"
+ },
+ "w3-total-cache": {
+  "name": "W3 Total Cache",
+  "installs": "900,000"
+ },
+ "tsp-easy-dev": {
+  "name": "LAPDI Easy Dev Framework",
+  "installs": "100"
+ },
+ "uipress-lite": {
+  "name": "UiPress lite | Effortless custom dashboards, admin themes and pages",
+  "installs": "6,000"
+ },
+ "voxycure-framework": {
+  "name": "Voxycure Framework",
+  "installs": "10"
+ },
+ "royal-mcp": {
+  "name": "Royal MCP – Secure AI Connector for Claude, ChatGPT &amp; any LLM via MCP",
+  "installs": "10,000"
+ },
+ "cmb2": {
+  "name": "CMB2",
+  "installs": "300,000"
+ },
+ "wp-members": {
+  "name": "WP-Members Membership Plugin",
+  "installs": "50,000"
+ },
+ "gdpr-for-gravity-forms": {
+  "name": "Gravity Forms: GDPR Framework Add-On",
+  "installs": "200"
+ },
+ "siteorigin-panels": {
+  "name": "Page Builder by SiteOrigin",
+  "installs": "400,000"
+ },
+ "event-tickets": {
+  "name": "Event Tickets and Registration",
+  "installs": "90,000"
+ },
+ "ws-form": {
+  "name": "WS Form LITE &#8211; Drag &amp; Drop Contact Form Builder",
+  "installs": "10,000"
+ },
+ "star-rating-field-for-contact-form-7": {
+  "name": "Star Rating Field For Contact Form 7",
+  "installs": "800"
+ },
+ "advanced-date-time-field": {
+  "name": "Advanced Date Time Field For Contact Form 7, Gravity Forms, WPForms, Elementor &amp; Fluent Forms",
+  "installs": "80"
+ },
+ "meta-tag-manager": {
+  "name": "Meta Tag Manager",
+  "installs": "70,000"
+ },
+ "head-meta-data": {
+  "name": "Head Meta Data",
+  "installs": "10,000"
+ },
+ "elementor": {
+  "name": "Elementor Website Builder &#8211; more than just a page builder",
+  "installs": ""
+ },
+ "members": {
+  "name": "Members &#8211; Membership &amp; User Role Editor Plugin",
+  "installs": "300,000"
+ },
+ "newsletter-optin-box": {
+  "name": "Noptin – Newsletter, New Post Notifications &amp; Email Automation",
+  "installs": "10,000"
+ },
+ "import-users-from-csv-with-meta": {
+  "name": "Import and export users and customers",
+  "installs": "70,000"
+ },
+ "meta-keywords-for-each-page": {
+  "name": "Meta Keywords for Each Page",
+  "installs": "1,000"
+ },
+ "ocean-extra": {
+  "name": "Ocean Extra",
+  "installs": "400,000"
+ },
+ "very-simple-meta-description": {
+  "name": "VS Meta Description",
+  "installs": "3,000"
+ },
+ "admin-site-enhancements": {
+  "name": "Admin and Site Enhancements (ASE)",
+  "installs": "200,000"
+ },
+ "public-post-preview": {
+  "name": "Public Post Preview",
+  "installs": "100,000"
+ },
+ "translatepress-multilingual": {
+  "name": "TranslatePress &#8211; Translate Multilingual sites with AI Translation",
+  "installs": "400,000"
+ },
+ "menu-icons": {
+  "name": "Menu Icons by Themeisle – Add Icons to Navigation Menus",
+  "installs": "100,000"
+ },
+ "disable-gutenberg": {
+  "name": "Disable Gutenberg",
+  "installs": "500,000"
+ },
+ "hm-cool-author-box-widget": {
+  "name": "Cool Author Box &#8211; For Widget and Post Content",
+  "installs": "500"
+ },
+ "pixelyoursite": {
+  "name": "PixelYourSite &#8211; Your smart PIXEL (TAG) &amp; API Manager",
+  "installs": "400,000"
+ },
+ "essential-addons-for-elementor-lite": {
+  "name": "Essential Addons for Elementor &#8211; Popular Elementor Templates &amp; Widgets",
+  "installs": ""
+ },
+ "surerank": {
+  "name": "SureRank SEO – Meta Tags, Social Preview, XML Sitemap, Schema &amp; Open Graph",
+  "installs": "300,000"
+ },
+ "post-meta-data-manager": {
+  "name": "Post Meta Data Manager",
+  "installs": "1,000"
+ },
+ "wp-meta-data-filter-and-taxonomy-filter": {
+  "name": "MDTF &#8211; Meta Data and Taxonomies Filter",
+  "installs": "900"
+ },
+ "disable-meta-box-resizing": {
+  "name": "Disable Meta Box Resizing",
+  "installs": "100"
+ },
+ "wp-linkedin-auto-publish": {
+  "name": "WP LinkedIn Auto Publish",
+  "installs": "8,000"
+ },
+ "meta": {
+  "name": "Meta Content",
+  "installs": "200"
+ },
+ "slim-seo": {
+  "name": "Slim SEO &#8211; AI SEO Plugin, Lightweight, Fast &amp; Automated",
+  "installs": "70,000"
+ },
+ "easy-meta-capi": {
+  "name": "CAPI Suite: Meta Pixel, Pinterest &amp; TikTok for WooCommerce",
+  "installs": "100"
+ },
+ "enhanced-e-commerce-for-woocommerce-store": {
+  "name": "Conversios – GA4, Google Ads &amp; Meta Conversion Tracking with Product Feed for WooCommerce",
+  "installs": "10,000"
+ },
+ "wp-admin-search-meta": {
+  "name": "WP-Admin Search Post Meta",
+  "installs": "300"
+ },
+ "simple-ajax-chat": {
+  "name": "Simple Ajax Chat – Add a Fast, Secure Chat Box",
+  "installs": "2,000"
+ },
+ "kaya-qr-code-generator": {
+  "name": "Kaya QR Code Generator",
+  "installs": "10,000"
+ },
+ "dynamic-visibility-for-elementor": {
+  "name": "Dynamic Visibility for Elementor",
+  "installs": "50,000"
+ },
+ "advanced-marquee-effect": {
+  "name": "Advanced Marquee Effect for Elementor &#8211; Smooth Marquee, News Ticker, Image Box &amp; Icon Box Marquee",
+  "installs": "2,000"
+ },
+ "mb-elementor-integrator": {
+  "name": "MB Elementor Integration",
+  "installs": "2,000"
+ },
+ "my-wp": {
+  "name": "My WP Customize Admin/Frontend",
+  "installs": "8,000"
+ },
+ "acf-frontend-form-element": {
+  "name": "ACF Frontend Admin by DynamiApps",
+  "installs": "8,000"
+ },
+ "wpgraphql-acf": {
+  "name": "WPGraphQL for ACF",
+  "installs": "10,000"
+ },
+ "acf-better-search": {
+  "name": "ACF: Better Search",
+  "installs": "40,000"
+ },
+ "csv-xml-import-for-acf": {
+  "name": "WP All Import – Import Add-On for ACF",
+  "installs": "50,000"
+ },
+ "acf-vc-integrator": {
+  "name": "ACF-VC Integrator",
+  "installs": "3,000"
+ },
+ "acf-galerie-4": {
+  "name": "ACF Galerie 4",
+  "installs": "2,000"
+ },
+ "post-2-post-for-acf": {
+  "name": "ACF Post-2-Post",
+  "installs": "3,000"
+ },
+ "acf-options-for-polylang": {
+  "name": "ACF Options For Polylang",
+  "installs": "20,000"
+ },
+ "csv-importer-plus-for-acf": {
+  "name": "CSV Importer Plus for ACF",
+  "installs": "400"
+ },
+ "advanced-forms": {
+  "name": "Advanced Forms for ACF",
+  "installs": "3,000"
+ },
+ "custom-option-page-for-acf": {
+  "name": "Custom Option Page for ACF",
+  "installs": "200"
+ },
+ "polylang": {
+  "name": "Polylang",
+  "installs": "900,000"
+ },
+ "simple-export-import-for-acf-data": {
+  "name": "Simple Export Import for ACF Data",
+  "installs": "1,000"
+ },
+ "acf-dropzone": {
+  "name": "ACF Dropzone",
+  "installs": "1,000"
+ },
+ "storychief-acf": {
+  "name": "StoryChief ACF",
+  "installs": "100"
+ },
+ "frontend-editor-acf": {
+  "name": "Frontend Editor ACF",
+  "installs": "100"
+ },
+ "ct-acf-gallery-for-divi": {
+  "name": "CT Divi ACF Masonry Gallery",
+  "installs": "200"
+ },
+ "repeaters-relationships-connector-acf-elementor": {
+  "name": "Repeaters &amp; Relationships Connector with ACF for Elementor",
+  "installs": "900"
+ },
+ "contact-form-7-honeypot": {
+  "name": "CF7 Apps – Addons for Contact Form 7 (Honeypot, Database, Redirection, Webhook, etc.)",
+  "installs": "300,000"
+ },
+ "wordfence": {
+  "name": "Wordfence Security &#8211; Firewall, Malware Scan, and Login Security",
+  "installs": ""
+ },
+ "woocommerce-gateway-stripe": {
+  "name": "WooCommerce Stripe Payment Gateway",
+  "installs": "700,000"
+ },
+ "slicewp": {
+  "name": "Affiliate Program Suite — SliceWP Affiliates",
+  "installs": "10,000"
+ },
+ "vigilante": {
+  "name": "Vigilant &#8211; 100% Free Security Suite: Firewall, 2FA, Login, Headers, Scanner…",
+  "installs": "3,000"
+ },
+ "woocommerce-wholesale-prices": {
+  "name": "Wholesale Suite – B2B, Dynamic Pricing &amp; WooCommerce Wholesale Prices",
+  "installs": "20,000"
+ },
+ "really-simple-csv-importer": {
+  "name": "Really Simple CSV Importer",
+  "installs": "40,000"
+ },
+ "kadence-blocks": {
+  "name": "Kadence Blocks — Page Builder Toolkit for Gutenberg Editor",
+  "installs": "600,000"
+ },
+ "custom-field-for-wp-job-manager": {
+  "name": "Custom Field For WP Job Manager",
+  "installs": "800"
+ },
+ "rolemaster-suite": {
+  "name": "RoleMaster Suite &#8211; User Role Editor for E-Commerce, Membership &amp; Admin Panel",
+  "installs": "700"
+ },
+ "brikpanel-admin-panel-dashboard-for-woocommerce": {
+  "name": "BrikPanel: WooCommerce Dashboard &amp; Analytics, Abandoned Cart Recovery, Order Export, Inventory Management &amp; Bulk Editor",
+  "installs": "1,000"
+ },
+ "colorlib-login-customizer": {
+  "name": "Custom Login Page Customizer",
+  "installs": "50,000"
+ },
+ "updraftplus": {
+  "name": "UpdraftPlus: WP Backup &amp; Migration Plugin",
+  "installs": ""
+ },
+ "woo-checkout-regsiter-field-editor": {
+  "name": "Checkout Field Editor (Checkout Manager) for WooCommerce",
+  "installs": "2,000"
+ },
+ "media-hygiene": {
+  "name": "Media Hygiene: Remove or Delete Unused Images and More!",
+  "installs": "4,000"
+ },
+ "wp-ultimate-csv-importer": {
+  "name": "WP Ultimate CSV Importer – WordPress CSV, XML &amp; Excel Import Export",
+  "installs": "20,000"
+ },
+ "publishpress-authors": {
+  "name": "Co-Authors, Multiple Authors and Guest Authors in an Author Box with PublishPress Authors",
+  "installs": "20,000"
+ },
+ "post-expirator": {
+  "name": "Schedule Post Changes With PublishPress Future: Unpublish, Delete, Change Status, Trash, Change Categories",
+  "installs": "100,000"
+ },
+ "ml-slider": {
+  "name": "Slider, Gallery, and Carousel by MetaSlider &#8211; Image Slider, Video Slider",
+  "installs": "500,000"
+ },
+ "atshift-fields-maintenance-for-custom-field-suite": {
+  "name": "atshift Fields (Maintenance for Custom Field Suite)",
+  "installs": "70"
+ },
+ "subtle-icons": {
+  "name": "Subtle Icons &#8211; SVG Icon Block Suite, Icon Picker &amp; ACF Field",
+  "installs": "600"
+ },
+ "buddypress": {
+  "name": "BuddyPress",
+  "installs": "90,000"
+ },
+ "waf-security-suite-for-cloudflare": {
+  "name": "Cloud Maestro &#8211; WAF Security Suite for Cloudflare",
+  "installs": "70"
+ },
+ "limit-login-attempts-reloaded": {
+  "name": "Limit Login Attempts Security &#8211; Login Security, 2FA, Firewall, Brute Force Prevention",
+  "installs": ""
+ },
+ "broken-link-checker": {
+  "name": "Broken Link Checker",
+  "installs": "500,000"
+ },
+ "fluent-affiliate": {
+  "name": "FluentAffiliate &#8211; Affiliate Program Management Suite, Affiliates Manager",
+  "installs": "2,000"
+ },
+ "octoplug-geo-suite": {
+  "name": "GEO Suite &#8211; AI SEO, llms.txt &amp; Schema &#8211; Octoplug",
+  "installs": "60"
+ },
+ "premium-addons-for-elementor": {
+  "name": "Premium Addons for Elementor – AI-Ready Elementor Addons, Widgets &amp; Templates",
+  "installs": "600,000"
+ },
+ "check-for-broken-links": {
+  "name": "Check for Broken Links &#8211; Broken Link Checker &amp; SEO Suite",
+  "installs": "2,000"
+ },
+ "extensions-for-cf7": {
+  "name": "Extensions For CF7 (Contact form 7 Database, Conditional Fields and Redirection)",
+  "installs": "5,000"
+ },
+ "post-grid": {
+  "name": "Post Grid",
+  "installs": "30,000"
+ },
+ "erp": {
+  "name": "ERP: Complete HR, Accounting &amp; CRM Suite Built for WooCommerce",
+  "installs": "5,000"
+ },
+ "import-woocommerce": {
+  "name": "Import WooCommerce Suite for Products, Orders, Coupons, Reviews, and Customers | WP Ultimate CSV Importer",
+  "installs": "4,000"
+ },
+ "wp-content-pilot": {
+  "name": "Content Pilot &#8211; Autoblogging &amp; Affiliate Marketing Suite",
+  "installs": "700"
+ },
+ "colibri-page-builder": {
+  "name": "Colibri Page Builder",
+  "installs": "80,000"
+ },
+ "duplicate-page": {
+  "name": "Duplicate Page",
+  "installs": ""
+ },
+ "greenshift-animation-and-page-builder-blocks": {
+  "name": "Greenshift &#8211; animation and page builder blocks",
+  "installs": "70,000"
+ },
+ "bold-page-builder": {
+  "name": "Bold Page Builder",
+  "installs": "40,000"
+ },
+ "popup-builder": {
+  "name": "Popup Builder &#8211; Create highly converting, mobile friendly marketing popups.",
+  "installs": "200,000"
+ },
+ "kirki": {
+  "name": "Kirki – Freeform Page Builder, Website Builder &amp; Customizer",
+  "installs": "400,000"
+ },
+ "post-and-page-builder": {
+  "name": "Post and Page Builder by BoldGrid &#8211; Visual Drag and Drop Editor",
+  "installs": "50,000"
+ },
+ "xpro-theme-builder": {
+  "name": "Xpro Theme Builder For Elementor &#8211; FREE",
+  "installs": "20,000"
+ },
+ "ninja-forms": {
+  "name": "Ninja Forms &#8211; Contact Form Builder with Calculators, Quizzes, Signatures &amp; AI Form Builder",
+  "installs": "500,000"
+ },
+ "blockstrap-page-builder-blocks": {
+  "name": "BlockStrap Page Builder &#8211; Bootstrap Blocks",
+  "installs": "2,000"
+ },
+ "otter-blocks": {
+  "name": "Otter Blocks &#8211; Gutenberg Blocks, Page Builder for Gutenberg Editor &amp; FSE",
+  "installs": "300,000"
+ },
+ "cleantalk-spam-protect": {
+  "name": "Anti-Spam, Spam FireWall by CleanTalk",
+  "installs": "200,000"
+ },
+ "popup-builder-block": {
+  "name": "Popup builder with Gamification, Multi-Step Popups, Page-Level Targeting, and WooCommerce Triggers",
+  "installs": "70,000"
+ },
+ "wp-maintenance-mode": {
+  "name": "LightStart &#8211; Maintenance Mode, Coming Soon and Landing Page Builder",
+  "installs": "400,000"
+ },
+ "funnel-builder": {
+  "name": "FunnelKit &#8211; Funnel Builder Plugin for WooCommerce Checkout",
+  "installs": "30,000"
+ },
+ "learning-management-system": {
+  "name": "Masteriyo LMS – LMS Course Builder, Quizzes &amp; Certificates",
+  "installs": "6,000"
+ },
+ "page-scroll-to-id": {
+  "name": "Page scroll to id",
+  "installs": "100,000"
+ },
+ "pagelayer": {
+  "name": "Page Builder: Pagelayer &#8211; Drag and Drop website builder",
+  "installs": "400,000"
+ },
+ "live-composer-page-builder": {
+  "name": "Live Composer &#8211; Free WordPress Website Builder",
+  "installs": "10,000"
+ },
+ "depicter": {
+  "name": "Depicter — Popup &amp; Slider Builder",
+  "installs": "70,000"
+ },
+ "brizy": {
+  "name": "Brizy &#8211; Page Builder",
+  "installs": "60,000"
+ },
+ "cost-calculator-builder": {
+  "name": "Cost Calculator Builder",
+  "installs": "20,000"
+ },
+ "kubio": {
+  "name": "Kubio AI Page Builder",
+  "installs": "80,000"
+ },
+ "the-plus-addons-for-block-editor": {
+  "name": "Nexter Blocks &#8211; Gutenberg Blocks, Page Builder &amp; AI Website Builder",
+  "installs": "9,000"
+ },
+ "essential-blocks": {
+  "name": "Gutenberg Essential Blocks – Page Builder for Gutenberg Blocks &amp; Patterns",
+  "installs": "100,000"
+ },
+ "password-protect-page": {
+  "name": "PPWP &#8211; Password Protect Pages",
+  "installs": "30,000"
+ }
+}

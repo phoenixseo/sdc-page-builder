@@ -1,0 +1,57 @@
+{
+ "extra_probes": {
+  "carbon-fields-2": {
+   "slug": "carbon-fields-2",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "toolset-types": {
+   "slug": "toolset-types",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "types": {
+   "slug": "types",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "custom-field-suite": {
+   "slug": "custom-field-suite",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "carbon-fields": {
+   "slug": "carbon-fields",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "meta-box-aio": {
+   "slug": "meta-box-aio",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "pods-views": {
+   "slug": "pods-views",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "advanced-custom-fields-extended": {
+   "slug": "advanced-custom-fields-extended",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "acf-openstreet": {
+   "slug": "acf-openstreet",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "wp-types": {
+   "slug": "wp-types",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "secure-custom-fields-pro": {
+   "slug": "secure-custom-fields-pro",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "block-lab": {
+   "slug": "block-lab",
+   "error": "HTTP Error 405: Method not allowed"
+  },
+  "advanced-forms": {
+   "slug": "advanced-forms",
+   "error": "HTTP Error 405: Method not allowed"
+  }
+ },
+ "search": {}
+}

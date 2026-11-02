@@ -1,0 +1,21 @@
+# Abhängigkeiten
+node_modules/
+vendor/
+
+# wp-env / lokale Testumgebung
+.wp-env.json
+.wp-env-home/
+test-scf/.wp-env.json
+
+# Werkzeuge und Caches
+.phpunit.result.cache
+.phpcs.cache
+*.log
+.DS_Store
+
+# Editor
+.idea/
+.vscode/
+
+# Recherche-Belege bleiben im Repo, aber nichts Generiertes
+_research/tmp/
