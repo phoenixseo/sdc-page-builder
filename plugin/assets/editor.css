@@ -1,0 +1,184 @@
+/**
+ * SDC Page Builder — metabox styling.
+ *
+ * Scope: the builder metabox only. No global selectors, no !important, no
+ * font overrides — the editor should look like wp-admin, not like a product.
+ */
+
+.sdc-builder {
+	margin: 0;
+}
+
+.sdc-builder .is-hidden {
+	display: none;
+}
+
+.sdc-builder__hint {
+	margin: 0 0 12px;
+	color: #646970;
+}
+
+.sdc-builder__list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+/* ------------------------------------------------------------ component */
+
+.sdc-component {
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.sdc-component.is-dragging {
+	opacity: 0.6;
+}
+
+.sdc-component__bar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 6px 10px;
+	border-bottom: 1px solid #f0f0f1;
+	background: #f6f7f7;
+}
+
+.sdc-component__handle {
+	cursor: grab;
+	color: #8c8f94;
+	letter-spacing: -2px;
+	user-select: none;
+}
+
+.sdc-component__title {
+	flex: 1 1 auto;
+	font-size: 13px;
+}
+
+.sdc-component__remove {
+	border: 0;
+	background: transparent;
+	color: #b32d2e;
+	cursor: pointer;
+	font-size: 18px;
+	line-height: 1;
+	padding: 0 4px;
+}
+
+.sdc-component__remove:hover {
+	color: #8a2424;
+}
+
+.sdc-component__body {
+	padding: 10px;
+}
+
+/* ----------------------------------------------------------------- list */
+
+.sdc-list {
+	margin: 12px 0;
+	padding: 10px;
+	border: 1px solid #f0f0f1;
+	border-radius: 4px;
+	background: #fbfbfc;
+}
+
+.sdc-list__label {
+	font-weight: 600;
+	margin-bottom: 8px;
+}
+
+.sdc-list__rows {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	margin-bottom: 8px;
+}
+
+.sdc-row {
+	display: grid;
+	grid-template-columns: 20px 1fr 24px;
+	gap: 6px;
+	align-items: start;
+	padding: 8px;
+	border: 1px solid #e5e5e5;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.sdc-row.is-dragging {
+	opacity: 0.6;
+}
+
+.sdc-row__handle {
+	cursor: grab;
+	color: #a7aaad;
+	user-select: none;
+	padding-top: 4px;
+}
+
+.sdc-row__body {
+	min-width: 0;
+}
+
+.sdc-row__remove {
+	border: 0;
+	background: transparent;
+	color: #b32d2e;
+	cursor: pointer;
+	font-size: 16px;
+	line-height: 1;
+	padding: 0;
+}
+
+/* ---------------------------------------------------------------- group */
+
+.sdc-group {
+	margin: 12px 0;
+	padding: 10px;
+	border: 1px solid #f0f0f1;
+	border-radius: 4px;
+}
+
+.sdc-group legend {
+	font-weight: 600;
+	padding: 0 4px;
+}
+
+/* ---------------------------------------------------------------- leaves */
+
+.sdc-field {
+	margin-bottom: 12px;
+}
+
+/**
+ * Leaves the host cannot enhance without its own `.acf-field` wrapper: the
+ * media picker, colour picker and TinyMCE never bind to them. Marked so the
+ * gap is visible while composing instead of surfacing as a broken save.
+ */
+.sdc-field--needs-host {
+	border-left: 3px solid #dba617;
+	padding-left: 8px;
+}
+
+/* --------------------------------------------------------------- adding */
+
+.sdc-builder__add {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-top: 12px;
+}
+
+.sdc-builder__status {
+	margin: 8px 0 0;
+	min-height: 1.4em;
+	color: #646970;
+}
+
+.sdc-builder__status.is-error {
+	color: #b32d2e;
+	font-weight: 600;
+}

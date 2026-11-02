@@ -162,6 +162,11 @@ class Sdc_Store {
 
 		update_post_meta( $post_id, self::META_KEY, wp_slash( $document ) );
 
+		// A meta write alone never creates a revision — measured: the count
+		// stays put and the previous revision keeps the old document. Without
+		// this call the builder had no history to restore from.
+		wp_save_post_revision( $post_id );
+
 		return $document;
 	}
 

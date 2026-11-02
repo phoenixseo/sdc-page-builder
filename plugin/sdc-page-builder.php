@@ -21,12 +21,14 @@ defined( 'ABSPATH' ) || exit;
 define( 'SDC_PB_VERSION', '0.1.0' );
 define( 'SDC_PB_FILE', __FILE__ );
 define( 'SDC_PB_DIR', plugin_dir_path( __FILE__ ) );
+define( 'SDC_PB_URL', plugin_dir_url( __FILE__ ) );
 
 require_once SDC_PB_DIR . 'includes/class-sdc-field-adapter.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-store.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-schema.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-rest.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-renderer.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-editor.php';
 
 /**
  * Boot the plugin once all plugins are loaded, so the host field plugin
@@ -41,6 +43,10 @@ function sdc_pb_boot() {
 	Sdc_Store::init();
 	Sdc_Schema::init();
 	Sdc_Rest::init();
+
+	if ( is_admin() ) {
+		Sdc_Editor::init();
+	}
 }
 add_action( 'plugins_loaded', 'sdc_pb_boot' );
 

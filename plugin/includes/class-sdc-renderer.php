@@ -36,12 +36,13 @@ class Sdc_Renderer {
 	/**
 	 * Render one component instance.
 	 *
-	 * @param string $type    Component type.
-	 * @param array  $data    Stored values for this instance.
-	 * @param string $context CSS/JS context, e.g. `preview` or `editor`.
+	 * @param string $type     Component type.
+	 * @param array  $data     Stored values for this instance.
+	 * @param string $context  CSS/JS context, e.g. `preview` or `editor`.
+	 * @param string $instance Instance id; gives the inputs a unique name prefix.
 	 * @return string HTML.
 	 */
-	public static function render_component( $type, $data, $context = 'editor' ) {
+	public static function render_component( $type, $data, $context = 'editor', $instance = '' ) {
 		$component = Sdc_Schema::get( $type );
 		if ( ! $component ) {
 			return '';
@@ -49,11 +50,20 @@ class Sdc_Renderer {
 
 		$fields = Sdc_Field_Adapter::get_fields( Sdc_Field_Adapter::get_field_group( $component['key'] ) );
 
+		// One prefix per instance. Two components of the same type otherwise
+		// produce identical input names — measured: 18 of 18 collided — and the
+		// later one would overwrite the earlier one on any form-style save.
+		$prefix = 'acf';
+		if ( '' !== $instance ) {
+			$prefix .= '[' . preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $instance ) . ']';
+		}
+
 		return sprintf(
-			'<div class="sdc-component sdc-component--%1$s" data-sdc-type="%1$s" data-sdc-context="%2$s">%3$s</div>',
+			'<div class="sdc-component sdc-component--%1$s" data-sdc-type="%1$s" data-sdc-context="%2$s" data-sdc-instance="%4$s">%3$s</div>',
 			esc_attr( $type ),
 			esc_attr( $context ),
-			self::render_fields( $fields, (array) $data, 'acf', 1 )
+			self::render_fields( $fields, (array) $data, $prefix, 1 ),
+			esc_attr( $instance )
 		);
 	}
 
@@ -171,8 +181,11 @@ class Sdc_Renderer {
 	private static function render_row( array $sub, array $row, $prefix, $depth, $index ) {
 		$id = isset( $row['_id'] ) ? (string) $row['_id'] : '';
 
+		// `data-sdc-prefix` is the row's own name prefix; the client rewrites it
+		// when rows are added, removed or moved. Without it the browser would
+		// have to reverse-engineer prefixes from input names.
 		return sprintf(
-			'<div class="sdc-row" data-sdc-row data-sdc-row-index="%1$s" data-sdc-row-id="%2$s">'
+			'<div class="sdc-row" data-sdc-row data-sdc-row-index="%1$s" data-sdc-row-id="%2$s" data-sdc-prefix="%6$s">'
 				. '<div class="sdc-row__handle" data-sdc-drag-handle aria-hidden="true">⋮⋮</div>'
 				. '<div class="sdc-row__body">%3$s</div>'
 				. '<button type="button" class="sdc-row__remove" data-sdc-remove-row aria-label="%4$s">×</button>'
@@ -182,6 +195,7 @@ class Sdc_Renderer {
 			esc_attr( $id ),
 			self::render_fields( $sub, $row, $prefix, $depth ),
 			esc_attr__( 'Zeile entfernen', 'sdc-page-builder' ),
+			esc_attr( $prefix ),
 			esc_attr( $prefix )
 		);
 	}
