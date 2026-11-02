@@ -218,6 +218,28 @@ class Sdc_Editor {
 		}
 
 		echo '<p class="sdc-builder__status" data-sdc-status aria-live="polite"></p>';
+
+		// Tools: every button below calls a real route. Nothing here is a
+		// placeholder — a control that does nothing would be worse than none.
+		echo '<div class="sdc-builder__tools" data-sdc-tools>';
+		printf(
+			'<button type="button" class="button" data-sdc-export>%s</button>',
+			esc_html__( 'Exportieren', 'sdc-page-builder' )
+		);
+		echo '<label class="button sdc-builder__file">';
+		esc_html_e( 'Importieren', 'sdc-page-builder' );
+		echo '<input type="file" accept=".json,application/json" data-sdc-import-input hidden></label>';
+		printf(
+			'<button type="button" class="button" data-sdc-history-toggle aria-expanded="false">%s</button>',
+			esc_html__( 'Verlauf', 'sdc-page-builder' )
+		);
+		echo '</div>';
+
+		echo '<div class="sdc-builder__history" data-sdc-history hidden>';
+		echo '<p class="sdc-builder__hint">' . esc_html__( 'Gespeicherte Stände dieser Seite, neueste zuerst. Wiederherstellen überschreibt das Dokument; der aktuelle Stand wird vorher gesichert.', 'sdc-page-builder' ) . '</p>';
+		echo '<ol class="sdc-builder__history-list" data-sdc-history-list></ol>';
+		echo '</div>';
+
 		echo '</div>';
 	}
 

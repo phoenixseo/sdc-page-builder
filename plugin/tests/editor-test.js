@@ -91,6 +91,30 @@ function boot( options ) {
 		requested.push( true );
 	};
 
+	// jsdom has no object URLs; the export scenario only needs them not to throw.
+	window.URL.createObjectURL = () => 'blob:test';
+	window.URL.revokeObjectURL = () => {};
+
+	// The export triggers a download by clicking a temporary <a download>.
+	// jsdom implements that click as a real navigation ("Not implemented"),
+	// which aborts the run; call the handler and note the click instead.
+	const downloads = [];
+	const realClick = window.HTMLElement.prototype.click;
+	window.HTMLElement.prototype.click = function () {
+		if ( this.tagName === 'A' && this.hasAttribute( 'download' ) ) {
+			downloads.push( { name: this.getAttribute( 'download' ), href: this.getAttribute( 'href' ) } );
+			return;
+		}
+		return realClick.apply( this, arguments );
+	};
+
+	// The editor reloads the page after import/restore so the form shows the
+	// stored document. jsdom makes `location` an own, non-configurable
+	// property, so `reload` cannot be stubbed here; the assertions check the
+	// request and the status line the user sees instead.
+
+	const env = { dom, window, document: window.document, sent, requested, downloads, respond: null };
+
 	window.fetch = function ( url, init ) {
 		sent.push( {
 			url,
@@ -98,10 +122,13 @@ function boot( options ) {
 			headers: ( init && init.headers ) || {},
 			body: init && init.body ? JSON.parse( init.body ) : null,
 		} );
+		const body = env.respond
+			? env.respond( url, init )
+			: { post_id: Number( meta.post ), document: { components: [] } };
 		return Promise.resolve( {
 			ok: true,
 			status: 200,
-			json: () => Promise.resolve( { post_id: Number( meta.post ), document: { components: [] } } ),
+			json: () => Promise.resolve( body ),
 		} );
 	};
 
@@ -123,7 +150,7 @@ function boot( options ) {
 	script.textContent = fs.readFileSync( opts.editorScript || SCRIPT_UNDER_TEST, 'utf8' );
 	window.document.body.appendChild( script );
 
-	return { dom, window, document: window.document, sent, requested };
+	return env;
 }
 
 const fire = ( window, element, type ) =>
@@ -406,6 +433,102 @@ async function scenarioEditAndSave() {
 	pass( 'POST-Body für den REST-Rundlauf geschrieben', path.relative( ROOT, OUTPUT ) );
 }
 
+/**
+ * The tools (export / import / history / restore). Every one of them must
+ * issue the request it advertises; a button that renders but does nothing is
+ * a placeholder, and the card forbids placeholders.
+ */
+async function scenarioTools() {
+	const env = boot();
+	const { document, window } = env;
+
+	const exportButton = document.querySelector( '[data-sdc-export]' );
+	const historyToggle = document.querySelector( '[data-sdc-history-toggle]' );
+	const historyPanel = document.querySelector( '[data-sdc-history]' );
+	const importInput = document.querySelector( '[data-sdc-import-input]' );
+
+	check( 'Export-Button vorhanden', !! exportButton );
+	check( 'Verlauf-Button vorhanden', !! historyToggle );
+	check( 'Import-Feld vorhanden', !! importInput );
+	check( 'Verlauf ist anfangs zu', historyPanel.hasAttribute( 'hidden' ) );
+
+	// Export issues GET .../export and hands the payload to a download.
+	env.sent.length = 0;
+	env.respond = () => ( { format: 1, slug: 'meine-seite', title: 'Meine Seite', document: { components: [] } } );
+	fire( window, exportButton, 'click' );
+	await tick( window );
+	check(
+		'Export ruft GET .../export',
+		env.sent.length === 1 && /\/pages\/\d+\/export$/.test( env.sent[ 0 ].url ),
+		env.sent.length ? env.sent[ 0 ].url : '(kein Request)'
+	);
+	check(
+		'Export löst einen Download mit Slug-Dateinamen aus',
+		env.downloads.length === 1 && env.downloads[ 0 ].name === 'meine-seite.json',
+		env.downloads.length ? env.downloads[ 0 ].name : '(kein Download)'
+	);
+
+	// History toggle issues GET .../history and lists a restorable entry.
+	env.sent.length = 0;
+	env.respond = () => ( {
+		revisions: [
+			{ revision: 4711, offset: -120, date: '02.11.2026 14:03', components: 2, title: 'Stand A' },
+		],
+	} );
+	fire( window, historyToggle, 'click' );
+	await tick( window );
+	check(
+		'Verlauf ruft GET .../history',
+		env.sent.length === 1 && /\/pages\/\d+\/history$/.test( env.sent[ 0 ].url ),
+		env.sent.length ? env.sent[ 0 ].url : '(kein Request)'
+	);
+	const restoreButtons = document.querySelectorAll( '[data-sdc-history-list] button' );
+	check( 'Verlauf listet den Stand mit Restore-Button', restoreButtons.length === 1, restoreButtons.length + ' Buttons' );
+	check( 'Verlauf zeigt Zeitversatz und Umfang', /2 min/.test( historyPanel.textContent ) && /2 Komponenten/.test( historyPanel.textContent ), historyPanel.textContent.trim().slice( 0, 80 ) );
+
+	// Restore posts the revision id from the list.
+	env.sent.length = 0;
+	env.respond = () => ( { changed: true, document: { components: [] } } );
+	fire( window, restoreButtons[ 0 ], 'click' );
+	await tick( window );
+	check(
+		'Restore POSTet die Revisions-Id aus der Liste',
+		env.sent.length === 1 && /\/restore$/.test( env.sent[ 0 ].url ) && env.sent[ 0 ].body && env.sent[ 0 ].body.revision === 4711,
+		env.sent.length ? JSON.stringify( env.sent[ 0 ].body ) : '(kein Request)'
+	);
+
+	// Import reads the file and posts it as `payload`.
+	env.sent.length = 0;
+	env.respond = () => ( { changed: true, document: { components: [ {}, {} ] } } );
+	const file = new window.File(
+		[ JSON.stringify( { format: 1, document: { components: [ { type: 'faq', data: {} } ] } } ) ],
+		'doc.json',
+		{ type: 'application/json' }
+	);
+	Object.defineProperty( importInput, 'files', { value: [ file ], configurable: true } );
+	fire( window, importInput, 'change' );
+	await tick( window, 60 );
+	check(
+		'Import POSTet die Datei als payload',
+		env.sent.length === 1 && /\/import$/.test( env.sent[ 0 ].url ) && env.sent[ 0 ].body && env.sent[ 0 ].body.payload && env.sent[ 0 ].body.payload.format === 1,
+		env.sent.length ? JSON.stringify( env.sent[ 0 ].body ).slice( 0, 90 ) : '(kein Request)'
+	);
+	check(
+		'Import meldet Erfolg samt Komponentenzahl',
+		/Importiert\..*2 Komponenten/.test( document.querySelector( '[data-sdc-status]' ).textContent ),
+		document.querySelector( '[data-sdc-status]' ).textContent
+	);
+
+	// Close the window so pending reload timers do not fire at process end
+	// (jsdom reports each as "navigation to another Document").
+	env.dom.window.close();
+}
+
+/** Let queued promises and timers settle. */
+function tick( window, ms ) {
+	return new Promise( ( resolve ) => window.setTimeout( resolve, ms || 10 ) );
+}
+
 /** No test hooks, no debug output in shipped code. */
 function scenarioNoDebugLeftovers() {
 	const source = fs.readFileSync( EDITOR_JS, 'utf8' );
@@ -426,6 +549,7 @@ function scenarioNoDebugLeftovers() {
 	await scenarioAddComponent();
 	await scenarioCollectShape();
 	await scenarioEditAndSave();
+	await scenarioTools();
 	scenarioNoDebugLeftovers();
 
 	console.log( '' );

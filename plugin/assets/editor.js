@@ -31,6 +31,9 @@
 	var list = builder.querySelector( '[data-sdc-components]' );
 	var emptyHint = builder.querySelector( '[data-sdc-empty]' );
 	var statusEl = builder.querySelector( '[data-sdc-status]' );
+	var historyPanel = builder.querySelector( '[data-sdc-history]' );
+	var historyList = builder.querySelector( '[data-sdc-history-list]' );
+	var importInput = builder.querySelector( '[data-sdc-import-input]' );
 	var postId = builder.getAttribute( 'data-sdc-post' );
 	var dirty = false;
 	var bypassSubmit = false;
@@ -517,11 +520,225 @@
 		}
 	}
 
+	/* --------------------------------------------------------------- tools */
+
+	/**
+	 * Read a JSON response, turning a non-OK status into an Error that
+	 * carries the server's message rather than "HTTP 422".
+	 *
+	 * @param {Response} response Fetch response.
+	 * @return {Promise} Resolves to the parsed body.
+	 */
+	function asJson( response ) {
+		return response.json().then( function ( body ) {
+			if ( ! response.ok ) {
+				var detail = body && body.message ? body.message : ( labels.failed || 'Failed' );
+				if ( body && body.data && body.data.errors && body.data.errors.length ) {
+					detail += ' ' + body.data.errors.join( ' ' );
+				}
+				throw new Error( detail );
+			}
+			return body;
+		} );
+	}
+
+	function exportDocument() {
+		setStatus( labels.exporting || 'Exportiere …', false );
+
+		return window.fetch( config.restUrl + postId + '/export', {
+			credentials: 'same-origin',
+			headers: { 'X-WP-Nonce': config.nonce }
+		} ).then( asJson ).then( function ( payload ) {
+			var blob = new window.Blob( [ JSON.stringify( payload, null, 2 ) ], { type: 'application/json' } );
+			var url = window.URL.createObjectURL( blob );
+			var link = document.createElement( 'a' );
+			link.href = url;
+			link.download = ( payload.slug || 'sdc-dokument' ) + '.json';
+			document.body.appendChild( link );
+			link.click();
+			document.body.removeChild( link );
+			window.URL.revokeObjectURL( url );
+			setStatus( labels.exported || 'Exportiert.', false );
+		} ).catch( function ( error ) {
+			setStatus( ( labels.failed || 'Failed' ) + ' ' + error.message, true );
+		} );
+	}
+
+	/**
+	 * Import a file into this page. The whole payload goes up in one request;
+	 * the server validates and writes nothing on error, so there is no
+	 * half-imported state to repair here.
+	 *
+	 * @param {File} file Chosen file.
+	 */
+	function importDocument( file ) {
+		setStatus( labels.importing || 'Importiere …', false );
+
+		var reader = new window.FileReader();
+		reader.onload = function () {
+			var text = String( reader.result || '' );
+			var payload;
+
+			try {
+				payload = JSON.parse( text );
+			} catch ( error ) {
+				setStatus( ( labels.failed || 'Failed' ) + ' ' + ( labels.badJson || 'Die Datei ist kein gültiges JSON.' ), true );
+				return;
+			}
+
+			if ( ! window.confirm( labels.importConfirm || 'Import überschreibt das aktuelle Dokument. Der jetzige Stand wird vorher gesichert. Fortfahren?' ) ) {
+				return;
+			}
+
+			window.fetch( config.restUrl + postId + '/import', {
+				method: 'POST',
+				credentials: 'same-origin',
+				headers: {
+					'Content-Type': 'application/json',
+					'X-WP-Nonce': config.nonce
+				},
+				body: JSON.stringify( { payload: payload } )
+			} ).then( asJson ).then( function ( body ) {
+				var count = body && body.document ? body.document.components.length : '?';
+				setStatus( ( labels.imported || 'Importiert.' ) + ' ' + count + ' Komponenten. Seite wird neu geladen …', false );
+				// Reload, because the form markup on screen is the old document.
+				reloadSoon( 900 );
+			} ).catch( function ( error ) {
+				setStatus( ( labels.failed || 'Failed' ) + ' ' + error.message, true );
+			} );
+		};
+		reader.readAsText( file );
+	}
+
+	/**
+	 * Reload the editor after the document changed underneath the form.
+	 *
+	 * Isolated so it can be swapped in tests: jsdom makes `location` an own,
+	 * non-configurable property, so a harness cannot stub `reload` and would
+	 * abort the run with "navigation to another Document".
+	 *
+	 * @param {number} delay Delay in ms, so the status line is readable.
+	 */
+	function reloadSoon( delay ) {
+		window.setTimeout( function () {
+			window.location.reload();
+		}, delay );
+	}
+
+	function formatOffset( offset ) {
+		if ( typeof offset !== 'number' ) {
+			return '';
+		}
+		if ( offset > -60 ) {
+			return Math.abs( offset ) + ' s';
+		}
+		if ( offset > -3600 ) {
+			return Math.round( Math.abs( offset ) / 60 ) + ' min';
+		}
+		if ( offset > -86400 ) {
+			return Math.round( Math.abs( offset ) / 3600 ) + ' h';
+		}
+		return Math.round( Math.abs( offset ) / 86400 ) + ' d';
+	}
+
+	function restore( revision, button ) {
+		if ( ! window.confirm( labels.restoreConfirm || 'Diesen Stand wiederherstellen? Das aktuelle Dokument wird vorher gesichert.' ) ) {
+			return;
+		}
+
+		button.disabled = true;
+		setStatus( labels.restoring || 'Stelle wieder her …', false );
+
+		window.fetch( config.restUrl + postId + '/restore', {
+			method: 'POST',
+			credentials: 'same-origin',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-WP-Nonce': config.nonce
+			},
+			body: JSON.stringify( { revision: revision } )
+		} ).then( asJson ).then( function () {
+			setStatus( labels.restored || 'Wiederhergestellt. Seite wird neu geladen …', false );
+			reloadSoon( 700 );
+		} ).catch( function ( error ) {
+			button.disabled = false;
+			setStatus( ( labels.failed || 'Failed' ) + ' ' + error.message, true );
+		} );
+	}
+
+	function renderHistory( entries ) {
+		historyList.textContent = '';
+
+		if ( ! entries.length ) {
+			var none = document.createElement( 'li' );
+			none.textContent = labels.noHistory || 'Keine gespeicherten Stände.';
+			historyList.appendChild( none );
+			return;
+		}
+
+		entries.forEach( function ( entry ) {
+			var item = document.createElement( 'li' );
+			item.className = 'sdc-builder__history-item';
+
+			var meta = document.createElement( 'span' );
+			meta.textContent = ( entry.date || '' ) + ' · ' + ( entry.components || 0 ) + ' Komponenten';
+			if ( entry.title ) {
+				meta.textContent += ' · ' + entry.title;
+			}
+			item.appendChild( meta );
+
+			var button = document.createElement( 'button' );
+			button.type = 'button';
+			button.className = 'button button-small';
+			button.textContent = ( labels.restore || 'Wiederherstellen' ) + ' (' + formatOffset( entry.offset ) + ')';
+			button.addEventListener( 'click', function () {
+				restore( entry.revision, button );
+			} );
+			item.appendChild( button );
+
+			historyList.appendChild( item );
+		} );
+	}
+
+	function toggleHistory( toggle ) {
+		var open = historyPanel.hasAttribute( 'hidden' );
+
+		if ( ! open ) {
+			historyPanel.setAttribute( 'hidden', '' );
+			toggle.setAttribute( 'aria-expanded', 'false' );
+			return;
+		}
+
+		historyPanel.removeAttribute( 'hidden' );
+		toggle.setAttribute( 'aria-expanded', 'true' );
+		historyList.textContent = labels.loading || 'Lade …';
+
+		window.fetch( config.restUrl + postId + '/history', {
+			credentials: 'same-origin',
+			headers: { 'X-WP-Nonce': config.nonce }
+		} ).then( asJson ).then( function ( body ) {
+			renderHistory( ( body && body.revisions ) || [] );
+		} ).catch( function ( error ) {
+			historyList.textContent = '';
+			setStatus( ( labels.failed || 'Failed' ) + ' ' + error.message, true );
+		} );
+	}
+
 	/* ---------------------------------------------------------------- wiring */
 
 	builder.addEventListener( 'click', function ( event ) {
 		var target = event.target;
 
+		if ( target.closest( '[data-sdc-export]' ) ) {
+			event.preventDefault();
+			exportDocument();
+			return;
+		}
+		if ( target.closest( '[data-sdc-history-toggle]' ) ) {
+			event.preventDefault();
+			toggleHistory( target.closest( '[data-sdc-history-toggle]' ) );
+			return;
+		}
 		if ( target.closest( '[data-sdc-add-component]' ) ) {
 			event.preventDefault();
 			addComponent();
@@ -545,6 +762,15 @@
 
 	builder.addEventListener( 'input', markDirty );
 	builder.addEventListener( 'change', markDirty );
+
+	if ( importInput ) {
+		importInput.addEventListener( 'change', function () {
+			if ( importInput.files && importInput.files.length ) {
+				importDocument( importInput.files[ 0 ] );
+			}
+			importInput.value = '';
+		} );
+	}
 
 	if ( form ) {
 		form.addEventListener( 'submit', function ( event ) {

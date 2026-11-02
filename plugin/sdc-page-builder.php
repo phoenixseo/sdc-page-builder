@@ -23,9 +23,37 @@ define( 'SDC_PB_FILE', __FILE__ );
 define( 'SDC_PB_DIR', plugin_dir_path( __FILE__ ) );
 define( 'SDC_PB_URL', plugin_dir_url( __FILE__ ) );
 
+/*
+ * `array_is_list()` is PHP 8.1+. The plugin header promises 7.4, and the
+ * validator leans on the list-vs-map distinction, so provide it rather than
+ * raise the minimum requirement of a plugin that otherwise works on 7.4.
+ */
+if ( ! function_exists( 'array_is_list' ) ) {
+	/**
+	 * Whether an array is a list with sequential 0-based integer keys.
+	 *
+	 * @param array $value Value to inspect.
+	 * @return bool
+	 */
+	function array_is_list( $value ) { // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedFunctionFound, PHPCompatibility.FunctionNameRestrictions.NewGlobalFunction
+		if ( ! is_array( $value ) ) {
+			return false;
+		}
+		$expected = 0;
+		foreach ( $value as $key => $unused ) {
+			if ( $key !== $expected ) {
+				return false;
+			}
+			++$expected;
+		}
+		return true;
+	}
+}
+
 require_once SDC_PB_DIR . 'includes/class-sdc-field-adapter.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-store.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-schema.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-document.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-rest.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-renderer.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-editor.php';
