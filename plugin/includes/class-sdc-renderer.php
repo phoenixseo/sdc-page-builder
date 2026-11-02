@@ -133,6 +133,13 @@ class Sdc_Renderer {
 	 * @return string HTML.
 	 */
 	private static function render_list( array $field, $value, $prefix, $depth ) {
+		if ( $depth > self::MAX_DEPTH ) {
+			// Measured before this guard existed: depth 4 rendered anyway.
+			// Silently cutting a list would look like an empty list, so say so.
+			error_log( sprintf( 'SDC Page Builder: Verschachtelungstiefe %d überschreitet das Maximum %d (Feld "%s").', (int) $depth, self::MAX_DEPTH, (string) $field['name'] ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			return '';
+		}
+
 		$rows = is_array( $value ) ? array_values( $value ) : array();
 		$sub  = isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ? $field['sub_fields'] : array();
 		$key  = isset( $field['key'] ) ? (string) $field['key'] : (string) $field['name'];
@@ -210,6 +217,11 @@ class Sdc_Renderer {
 	 * @return string HTML.
 	 */
 	private static function render_group( array $field, $value, $prefix, $depth ) {
+		if ( $depth > self::MAX_DEPTH ) {
+			error_log( sprintf( 'SDC Page Builder: Verschachtelungstiefe %d überschreitet das Maximum %d (Feld "%s").', (int) $depth, self::MAX_DEPTH, (string) $field['name'] ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log
+			return '';
+		}
+
 		$sub = isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ? $field['sub_fields'] : array();
 		$key = isset( $field['key'] ) ? (string) $field['key'] : (string) $field['name'];
 

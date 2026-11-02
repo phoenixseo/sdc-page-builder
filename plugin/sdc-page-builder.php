@@ -29,6 +29,7 @@ require_once SDC_PB_DIR . 'includes/class-sdc-schema.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-rest.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-renderer.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-editor.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-frontend.php';
 
 /**
  * Boot the plugin once all plugins are loaded, so the host field plugin
@@ -43,6 +44,7 @@ function sdc_pb_boot() {
 	Sdc_Store::init();
 	Sdc_Schema::init();
 	Sdc_Rest::init();
+	Sdc_Frontend::init();
 
 	if ( is_admin() ) {
 		Sdc_Editor::init();
