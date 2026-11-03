@@ -256,7 +256,7 @@ class Sdc_Frontend {
 	private static function render_leaf( array $field, $value ) {
 		$type = isset( $field['type'] ) ? (string) $field['type'] : 'text';
 		$name = (string) $field['name'];
-		$html = self::format_value( $type, $value, $field );
+		$html = self::format_value( $type, $value );
 
 		if ( '' === trim( $html ) ) {
 			return '';
@@ -277,10 +277,9 @@ class Sdc_Frontend {
 	 *
 	 * @param string $type  Field type.
 	 * @param mixed  $value Raw value.
-	 * @param array  $field Field definition, for `return_format` etc.
 	 * @return string HTML, escaped.
 	 */
-	private static function format_value( $type, $value, array $field ) {
+	private static function format_value( $type, $value ) {
 		if ( null === $value || '' === $value || array() === $value ) {
 			return '';
 		}

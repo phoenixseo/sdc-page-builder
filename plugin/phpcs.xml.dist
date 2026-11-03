@@ -1,0 +1,81 @@
+<?xml version="1.0"?>
+<ruleset name="SDC Page Builder">
+	<description>WordPress Coding Standards for the SDC Page Builder plugin.</description>
+
+	<file>sdc-page-builder.php</file>
+	<file>includes</file>
+	<file>uninstall.php</file>
+	<file>tests/phpunit</file>
+
+	<exclude-pattern>vendor/*</exclude-pattern>
+	<exclude-pattern>node_modules/*</exclude-pattern>
+	<exclude-pattern>wordpress/*</exclude-pattern>
+
+	<arg name="basepath" value="."/>
+	<arg name="extensions" value="php"/>
+	<arg name="parallel" value="8"/>
+	<arg name="colors"/>
+	<arg value="sp"/>
+	<arg name="cache" value=".phpcs.cache"/>
+
+	<rule ref="WordPress"/>
+	<rule ref="WordPress-Extra"/>
+	<rule ref="WordPress-Docs"/>
+
+	<config name="minimum_supported_wp_version" value="6.4"/>
+	<config name="testVersion" value="7.4-"/>
+
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="sdc"/>
+				<element value="SDC"/>
+			</property>
+		</properties>
+		<!--
+			`sdc` is three characters, which WPCS flags as non-unique. It is the
+			plugin's established prefix across file names, constants, meta keys
+			and the REST namespace; renaming it now would break stored documents
+			and saved field keys. Accepted deliberately, not overlooked.
+		-->
+		<exclude name="WordPress.NamingConventions.PrefixAllGlobals.ShortPrefixPassed"/>
+	</rule>
+
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="sdc-page-builder"/>
+			</property>
+		</properties>
+	</rule>
+
+	<rule ref="WordPress.Files.FileName">
+		<properties>
+			<property name="strict_class_file_names" value="false"/>
+		</properties>
+	</rule>
+
+	<!--
+		The test suite under tests/phpunit/ is held to the same standard as the
+		plugin, with three exclusions that are properties of PHPUnit and of
+		fixtures, not of our code:
+
+		- WordPress.Files.FileName — PHPUnit discovers tests by the `*Test.php`
+		  suffix and the class name, so `StoreTest.php` cannot become
+		  `store-test.php` without renaming the class too.
+		- file_get_contents — tests read local fixtures and the POT file from
+		  disk. `wp_remote_get()` is for HTTP and would test the wrong thing.
+		- file_system_operations_* — the bootstrap symlinks the plugin into the
+		  WordPress test install; that is exactly what WP_Filesystem cannot do.
+	-->
+	<rule ref="WordPress">
+		<include-pattern>tests/*</include-pattern>
+		<exclude name="WordPress.Files.FileName"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_system_operations_fopen"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_system_operations_unlink"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_system_operations_mkdir"/>
+		<exclude name="WordPress.WP.AlternativeFunctions.file_system_operations_is_writable"/>
+	</rule>
+</ruleset>

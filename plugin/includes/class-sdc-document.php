@@ -255,7 +255,7 @@ class Sdc_Document {
 			}
 
 			foreach ( $subs as $sub ) {
-				$sub_name = (string) $sub['name'];
+				$sub_name  = (string) $sub['name'];
 				$sub_value = $row[ $sub_name ] ?? null;
 
 				if ( self::is_blank( $sub_value ) ) {
@@ -489,12 +489,12 @@ class Sdc_Document {
 		$post = get_post( $post_id );
 
 		return array(
-			'format'     => self::EXPORT_FORMAT,
-			'plugin'     => 'sdc-page-builder',
-			'version'    => defined( 'SDC_VERSION' ) ? SDC_VERSION : '',
-			'exported'   => gmdate( 'c' ),
-			'title'      => $post ? (string) $post->post_title : '',
-			'document'   => self::read( $post_id ),
+			'format'   => self::EXPORT_FORMAT,
+			'plugin'   => 'sdc-page-builder',
+			'version'  => defined( 'SDC_VERSION' ) ? SDC_VERSION : '',
+			'exported' => gmdate( 'c' ),
+			'title'    => $post ? (string) $post->post_title : '',
+			'document' => self::read( $post_id ),
 		);
 	}
 

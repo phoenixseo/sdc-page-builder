@@ -117,14 +117,14 @@ class Sdc_Field_Adapter {
 	/**
 	 * Fields belonging to a group or another field.
 	 *
-	 * @param string|array $parent Field group key, group array, or parent field.
+	 * @param string|array $group_or_field Field group key, group array, or field.
 	 * @return array[]
 	 */
-	public static function get_fields( $parent ) {
+	public static function get_fields( $group_or_field ) {
 		if ( ! self::is_available() ) {
 			return array();
 		}
-		$fields = acf_get_fields( $parent );
+		$fields = acf_get_fields( $group_or_field );
 		return is_array( $fields ) ? $fields : array();
 	}
 
@@ -134,9 +134,9 @@ class Sdc_Field_Adapter {
 	 * Kept here so no other file calls `get_field()` directly — that function
 	 * name is exactly what caused the historical alias collision.
 	 *
-	 * @param string   $selector Field name or key.
-	 * @param int      $post_id  Post ID.
-	 * @param bool     $format   Whether to format the value.
+	 * @param string $selector Field name or key.
+	 * @param int    $post_id  Post ID.
+	 * @param bool   $format   Whether to format the value.
 	 * @return mixed
 	 */
 	public static function get_value( $selector, $post_id, $format = true ) {

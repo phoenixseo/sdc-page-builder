@@ -1,0 +1,92 @@
+<?php
+/**
+ * Component types, as declared by the JSON schemas only.
+ *
+ * @package SdcPageBuilder
+ */
+
+/**
+ * The universality claim: a component type is a JSON file, nothing else. The
+ * second type (`hero`) exists to prove it — if any test here needs code
+ * outside `schemas/`, the claim is false.
+ */
+class SchemaTest extends Sdc_TestCase {
+
+	/**
+	 * Both shipped types are discovered from the schema directory.
+	 */
+	public function test_shipped_types_are_discovered() {
+		$components = Sdc_Schema::components();
+
+		$this->assertArrayHasKey( 'faq', $components );
+		$this->assertArrayHasKey( 'hero', $components );
+	}
+
+	/**
+	 * A descriptor carries what the editor needs to render a component card.
+	 */
+	public function test_descriptor_carries_label_icon_and_fields() {
+		$faq = Sdc_Schema::get( 'faq' );
+
+		$this->assertSame( 'faq', $faq['type'] );
+		$this->assertSame( 'group_sdc_component_faq', $faq['key'] );
+		$this->assertSame( 'FAQ', $faq['label'] );
+		$this->assertNotEmpty( $faq['icon'] );
+		$this->assertNotEmpty( $faq['fields'] );
+	}
+
+	/**
+	 * Fields are normalized to the flat shape the editor's JS consumes.
+	 *
+	 * Nesting is not in the descriptor: `normalize_field()` returns one row per
+	 * top-level field, and the row structure comes from the rendered markup
+	 * (see RendererTest).
+	 */
+	public function test_fields_are_normalized_to_a_flat_shape() {
+		$fields = Sdc_Schema::fields( 'faq' );
+		$names  = array_column( $fields, 'name' );
+
+		$this->assertSame( array( 'heading', 'items' ), $names );
+
+		foreach ( $fields as $field ) {
+			$this->assertSame(
+				array( 'key', 'name', 'label', 'type', 'required' ),
+				array_keys( $field ),
+				'Unexpected descriptor shape for field ' . $field['name']
+			);
+		}
+
+		$this->assertSame( 'repeater', $fields[1]['type'] );
+		$this->assertSame( 'field_sdc_faq_items', $fields[1]['key'] );
+	}
+
+	/**
+	 * `version_string()` is what gets stored per component instance.
+	 */
+	public function test_version_string_is_type_at_version() {
+		$this->assertSame( 'faq@1', Sdc_Schema::version_string( 'faq' ) );
+		$this->assertSame( 'hero@1', Sdc_Schema::version_string( 'hero' ) );
+	}
+
+	/**
+	 * An unknown type is null, not an error — the renderer relies on that.
+	 */
+	public function test_unknown_type_returns_null() {
+		$this->assertNull( Sdc_Schema::get( 'gibt-es-nicht' ) );
+		$this->assertSame( array(), Sdc_Schema::fields( 'gibt-es-nicht' ) );
+		$this->assertSame( 'gibt-es-nicht@1', Sdc_Schema::version_string( 'gibt-es-nicht' ) );
+	}
+
+	/**
+	 * The hero type is link + textarea + text — three field types the FAQ type
+	 * does not use, which is what makes it a real second case.
+	 */
+	public function test_hero_uses_field_types_the_faq_type_does_not() {
+		$hero = array_column( Sdc_Schema::fields( 'hero' ), 'type', 'name' );
+		$faq  = array_column( Sdc_Schema::fields( 'faq' ), 'type', 'name' );
+
+		$this->assertSame( 'link', $hero['cta'] );
+		$this->assertSame( 'textarea', $hero['subline'] );
+		$this->assertNotContains( 'link', $faq );
+	}
+}

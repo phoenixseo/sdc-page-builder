@@ -1,0 +1,126 @@
+name: CI
+
+# Runs on every push and pull request into the release branches. The job matrix
+# is the claim in readme.txt: PHP 7.4 (the minimum) and 8.3 (current), each
+# with lint, PHPCS and the PHPUnit suite against the real WordPress test
+# library.
+#
+# What this does NOT cover: the ACF/SCF host plugin is not on wp.org for SCF, so
+# the SCF flavour of the suite runs locally only (SDC_TEST_HOST_PLUGIN=scf).
+# The matrix here runs the ACF flavour, which is the one a reviewer installs.
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['7.4', '8.3']
+
+    services:
+      mysql:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wp_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      SDC_TEST_DB_HOST: 127.0.0.1:3306
+      SDC_TEST_DB_NAME: wp_tests
+      SDC_TEST_DB_USER: root
+      SDC_TEST_DB_PASSWORD: root
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: mbstring, intl, mysqli, zip, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: plugin
+        # Platform PHP is pinned to the minimum in composer.json, so the lock
+        # file resolves identically on both matrix entries.
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHP syntax check
+        working-directory: plugin
+        # Only the plugins own files: vendor/ and the roots/wordpress checkout
+        # are not ours to lint, and linting them hides a real syntax error in
+        # 1300 lines of "No syntax errors detected".
+        run: |
+          find . -name '*.php' \
+            -not -path './vendor/*' \
+            -not -path './node_modules/*' \
+            -not -path './wordpress/*' \
+            -print0 | xargs -0 -n1 -P4 php -l > /dev/null
+          echo "syntax OK"
+
+      - name: PHPCS (WordPress Coding Standards)
+        working-directory: plugin
+        run: vendor/bin/phpcs -q
+
+      - name: PHPUnit
+        working-directory: plugin
+        # roots/wordpress installs a core checkout into plugin/wordpress/ — the
+        # bootstrap needs it, because the test library boots a real WordPress
+        # and the plugin is symlinked into its wp-content/plugins.
+        #
+        # The bootstrap needs ACF, which is not vendored. Fetching it from
+        # wp.org keeps the CI run honest: it tests against the plugin a user
+        # actually installs, at the version the local suite uses.
+        env:
+          SDC_TEST_HOST_PLUGIN: acf
+          SDC_TEST_WP_DIR: ${{ github.workspace }}/plugin/wordpress
+        run: |
+          mkdir -p /tmp/acf-free
+          curl -fsSL -o /tmp/acf.zip https://downloads.wordpress.org/plugin/advanced-custom-fields.6.8.10.zip
+          unzip -q /tmp/acf.zip -d /tmp/acf-free
+          export SDC_TEST_ACF_ZIP=/tmp/acf-free/advanced-custom-fields
+          vendor/bin/phpunit
+
+  js:
+    name: Editor tests (jsdom)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install
+        working-directory: plugin
+        run: npm install --no-audit --no-fund
+      - name: Run
+        working-directory: plugin
+        run: npm test
+
+  readme:
+    name: readme.txt structure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check readme.txt
+        run: bash test-scf/check-readme.sh

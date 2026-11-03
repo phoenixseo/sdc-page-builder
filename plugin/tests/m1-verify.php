@@ -129,7 +129,10 @@ $check(
 $check( 'Formatversion gesetzt', Sdc_Store::FORMAT_VERSION === $back['v'], 'v=' . $back['v'] );
 
 echo "\n== 6. Revisionen ==\n";
-$rev_id = wp_save_post_revision( $post_id );
+// `wp_save_post_revision()` returns null when the post fields are unchanged —
+// a meta-only save is exactly that case, measured in M4. The forced variant
+// records the snapshot regardless.
+$rev_id = _wp_put_post_revision( get_post( $post_id ), true );
 $check( 'Revision angelegt', is_int( $rev_id ) && $rev_id > 0, "revision $rev_id" );
 $rev_meta = $rev_id ? get_post_meta( $rev_id, Sdc_Store::META_KEY, true ) : null;
 $check( 'Revision enthält das Dokument', ! empty( $rev_meta ) && is_array( $rev_meta ) );

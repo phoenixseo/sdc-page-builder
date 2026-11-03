@@ -1,0 +1,169 @@
+# Copyright (C) 2026 PHOENIXSEO
+# This file is distributed under the GPL-2.0-or-later.
+msgid ""
+msgstr ""
+"Project-Id-Version: SDC Page Builder 0.1.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/sdc-page-builder\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-11-03T12:13:30+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: sdc-page-builder\n"
+
+#. Plugin Name of the plugin
+#: sdc-page-builder.php
+msgid "SDC Page Builder"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: sdc-page-builder.php
+msgid "https://github.com/phoenixseo/sdc-page-builder"
+msgstr ""
+
+#. Description of the plugin
+#: sdc-page-builder.php
+msgid "Komponentenbasierter Page-Builder für WordPress, der ACF-Felder und Secure Custom Fields als Bausteine nutzt. Speichert Seiten als ein JSON-Dokument mit Revisionen und Schema-Versionierung."
+msgstr ""
+
+#. Author of the plugin
+#: sdc-page-builder.php
+msgid "PHOENIXSEO"
+msgstr ""
+
+#. Author URI of the plugin
+#: sdc-page-builder.php
+msgid "https://phoenixseo.de"
+msgstr ""
+
+#: includes/class-sdc-editor.php:55
+msgid "Page Builder"
+msgstr ""
+
+#: includes/class-sdc-editor.php:107
+msgid "Gespeichert."
+msgstr ""
+
+#: includes/class-sdc-editor.php:108
+msgid "Speichert …"
+msgstr ""
+
+#: includes/class-sdc-editor.php:109
+msgid "Speichern fehlgeschlagen."
+msgstr ""
+
+#: includes/class-sdc-editor.php:110
+msgid "Nicht gespeicherte Änderungen — wird beim Aktualisieren mitgeschrieben."
+msgstr ""
+
+#: includes/class-sdc-editor.php:111
+#: includes/class-sdc-editor.php:181
+msgid "Noch keine Komponenten. Unten eine Komponente hinzufügen."
+msgstr ""
+
+#: includes/class-sdc-editor.php:112
+msgid "Komponente samt Inhalt entfernen?"
+msgstr ""
+
+#: includes/class-sdc-editor.php:172
+msgid "Keine Komponenten gefunden. Komponenten sind Feldgruppen mit dem Schlüssel-Präfix group_sdc_component_."
+msgstr ""
+
+#: includes/class-sdc-editor.php:208
+msgid "Komponente hinzufügen"
+msgstr ""
+
+#: includes/class-sdc-editor.php:233
+msgid "Exportieren"
+msgstr ""
+
+#: includes/class-sdc-editor.php:236
+msgid "Importieren"
+msgstr ""
+
+#: includes/class-sdc-editor.php:240
+msgid "Verlauf"
+msgstr ""
+
+#: includes/class-sdc-editor.php:245
+msgid "Gespeicherte Stände dieser Seite, neueste zuerst. Wiederherstellen überschreibt das Dokument; der aktuelle Stand wird vorher gesichert."
+msgstr ""
+
+#: includes/class-sdc-editor.php:282
+msgid "Komponente entfernen"
+msgstr ""
+
+#: includes/class-sdc-frontend.php:302
+msgid "Ja"
+msgstr ""
+
+#: includes/class-sdc-frontend.php:302
+msgid "Nein"
+msgstr ""
+
+#: includes/class-sdc-renderer.php:171
+msgid "Zeile hinzufügen"
+msgstr ""
+
+#: includes/class-sdc-renderer.php:204
+msgid "Zeile entfernen"
+msgstr ""
+
+#: includes/class-sdc-rest.php:167
+msgid "Seite nicht gefunden."
+msgstr ""
+
+#: includes/class-sdc-rest.php:170
+msgid "Keine Berechtigung für diese Seite."
+msgstr ""
+
+#: includes/class-sdc-rest.php:206
+msgid "components muss ein Array sein."
+msgstr ""
+
+#: includes/class-sdc-rest.php:215
+msgid "Komponente ohne Typ."
+msgstr ""
+
+#. translators: %s: component type
+#: includes/class-sdc-rest.php:221
+#, php-format
+msgid "Unbekannter Komponententyp: %s"
+msgstr ""
+
+#. translators: 1: component position, 2: component type, 3: field label
+#: includes/class-sdc-rest.php:246
+#, php-format
+msgid "Komponente %1$d (%2$s): Pflichtfeld \"%3$s\" ist leer."
+msgstr ""
+
+#: includes/class-sdc-rest.php:258
+msgid "Das Dokument wurde abgelehnt. Gespeichert wurde nichts."
+msgstr ""
+
+#. translators: %s: parser message
+#: includes/class-sdc-rest.php:380
+#, php-format
+msgid "Die Datei ist kein gültiges JSON: %s"
+msgstr ""
+
+#: includes/class-sdc-rest.php:392
+msgid "Der Import erwartet ein JSON-Objekt."
+msgstr ""
+
+#. translators: 1: found format, 2: expected format
+#: includes/class-sdc-rest.php:402
+#, php-format
+msgid "Unbekanntes Exportformat \"%1$s\" (erwartet: %2$d)."
+msgstr ""
+
+#: includes/class-sdc-rest.php:416
+msgid "Der Import wurde abgelehnt. Das Dokument ist unverändert."
+msgstr ""
+
+#: sdc-page-builder.php:110
+msgid "SDC Page Builder benötigt Advanced Custom Fields oder Secure Custom Fields. Bitte eines der beiden Plugins aktivieren."
+msgstr ""

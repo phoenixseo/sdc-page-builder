@@ -224,6 +224,45 @@ class Sdc_Rest {
 			}
 		}
 
+		// The editor posts components before they are stored, so they have no
+		// id yet and `Sdc_Document::validate()` — which checks stored documents
+		// — would reject them for the wrong reason. Only the field content is
+		// checked here. `required` is part of the schema and was previously
+		// enforced on import but not on save.
+		$content_errors = array();
+		foreach ( $input as $index => $component ) {
+			$type   = (string) $component['type'];
+			$fields = Sdc_Schema::fields( $type );
+			$data   = isset( $component['data'] ) && is_array( $component['data'] ) ? $component['data'] : array();
+
+			foreach ( $fields as $field ) {
+				if ( empty( $field['required'] ) ) {
+					continue;
+				}
+				$value = $data[ $field['name'] ] ?? null;
+				if ( is_string( $value ) ? '' === trim( $value ) : empty( $value ) ) {
+					$content_errors[] = sprintf(
+						/* translators: 1: component position, 2: component type, 3: field label */
+						__( 'Komponente %1$d (%2$s): Pflichtfeld "%3$s" ist leer.', 'sdc-page-builder' ),
+						(int) $index + 1,
+						$type,
+						(string) $field['label']
+					);
+				}
+			}
+		}
+
+		if ( $content_errors ) {
+			return new WP_Error(
+				'sdc_invalid_document',
+				__( 'Das Dokument wurde abgelehnt. Gespeichert wurde nichts.', 'sdc-page-builder' ),
+				array(
+					'status' => 422,
+					'errors' => $content_errors,
+				)
+			);
+		}
+
 		$saved = Sdc_Store::save_data( $post_id, array( 'components' => $input ) );
 
 		return new WP_REST_Response(
@@ -355,7 +394,7 @@ class Sdc_Rest {
 			);
 		}
 
-		if ( isset( $payload['format'] ) && (int) $payload['format'] !== Sdc_Document::EXPORT_FORMAT ) {
+		if ( isset( $payload['format'] ) && Sdc_Document::EXPORT_FORMAT !== (int) $payload['format'] ) {
 			return new WP_Error(
 				'sdc_import_format',
 				sprintf(

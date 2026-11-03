@@ -1,0 +1,36 @@
+<?xml version="1.0"?>
+<phpunit
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+	bootstrap="tests/phpunit/bootstrap.php"
+	backupGlobals="false"
+	colors="true"
+	beStrictAboutOutputDuringTests="false"
+	failOnRisky="false"
+	failOnWarning="false"
+	convertErrorsToExceptions="true"
+	convertNoticesToExceptions="true"
+	convertWarningsToExceptions="true"
+	testdox="true"
+>
+	<testsuites>
+		<testsuite name="sdc-page-builder">
+			<directory suffix="Test.php">tests/phpunit</directory>
+		</testsuite>
+	</testsuites>
+
+	<coverage>
+		<include>
+			<directory suffix=".php">includes</directory>
+			<file>sdc-page-builder.php</file>
+		</include>
+	</coverage>
+
+	<php>
+		<env name="WP_TESTS_DIR" value="vendor/wp-phpunit/wp-phpunit"/>
+		<env name="SDC_TEST_WP_DIR" value="wordpress"/>
+		<env name="WP_PHPUNIT__TESTS_CONFIG" value="tests/phpunit/wp-tests-config.php"/>
+		<env name="SDC_TEST_ACF_ZIP" value="/tmp/acf-free/advanced-custom-fields"/>
+		<env name="SDC_TEST_SCF_DIR" value="/var/www/html/wp-content/plugins/secure-custom-fields"/>
+	</php>
+</phpunit>

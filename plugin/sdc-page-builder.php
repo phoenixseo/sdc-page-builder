@@ -60,6 +60,24 @@ require_once SDC_PB_DIR . 'includes/class-sdc-editor.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-frontend.php';
 
 /**
+ * Load the plugin's translations.
+ *
+ * Attached to `init`, not called at file scope: WordPress 6.7 warns — and
+ * `_load_textdomain_just_in_time()` fires a notice in the log — when a
+ * textdomain is touched before then. Measured in the container, the notice
+ * appeared for every request while the domain was loaded early.
+ *
+ * No arguments on purpose: the `Domain Path` header and the plugin directory
+ * are what `load_plugin_textdomain()` uses when called with the textdomain
+ * alone, and staying argument-free means wp.org's language packs work without
+ * a hardcoded path.
+ */
+function sdc_pb_load_textdomain() {
+	load_plugin_textdomain( 'sdc-page-builder' );
+}
+add_action( 'init', 'sdc_pb_load_textdomain' );
+
+/**
  * Boot the plugin once all plugins are loaded, so the host field plugin
  * (ACF or SCF) has registered its API.
  */

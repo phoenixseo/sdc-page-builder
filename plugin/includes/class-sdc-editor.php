@@ -91,6 +91,11 @@ class Sdc_Editor {
 			true
 		);
 
+		// Translations reach the script through `SDC_PB.labels` below; this call
+		// is for the JSON translation files wp.org generates for the script, so
+		// a language pack can translate without touching PHP.
+		wp_set_script_translations( 'sdc-pb-editor', 'sdc-page-builder', SDC_PB_DIR . 'languages' );
+
 		wp_localize_script(
 			'sdc-pb-editor',
 			'SDC_PB',
@@ -99,12 +104,12 @@ class Sdc_Editor {
 				'nonce'   => wp_create_nonce( 'wp_rest' ),
 				'fields'  => self::field_map(),
 				'labels'  => array(
-					'saved'    => __( 'Gespeichert.', 'sdc-page-builder' ),
-					'saving'   => __( 'Speichert …', 'sdc-page-builder' ),
-					'failed'   => __( 'Speichern fehlgeschlagen.', 'sdc-page-builder' ),
-					'dirty'    => __( 'Nicht gespeicherte Änderungen — wird beim Aktualisieren mitgeschrieben.', 'sdc-page-builder' ),
-					'empty'    => __( 'Noch keine Komponenten. Unten eine Komponente hinzufügen.', 'sdc-page-builder' ),
-					'confirm'  => __( 'Komponente samt Inhalt entfernen?', 'sdc-page-builder' ),
+					'saved'   => __( 'Gespeichert.', 'sdc-page-builder' ),
+					'saving'  => __( 'Speichert …', 'sdc-page-builder' ),
+					'failed'  => __( 'Speichern fehlgeschlagen.', 'sdc-page-builder' ),
+					'dirty'   => __( 'Nicht gespeicherte Änderungen — wird beim Aktualisieren mitgeschrieben.', 'sdc-page-builder' ),
+					'empty'   => __( 'Noch keine Komponenten. Unten eine Komponente hinzufügen.', 'sdc-page-builder' ),
+					'confirm' => __( 'Komponente samt Inhalt entfernen?', 'sdc-page-builder' ),
 				),
 			)
 		);
@@ -178,14 +183,15 @@ class Sdc_Editor {
 
 		echo '<div class="sdc-builder__list" data-sdc-components>';
 		foreach ( $components as $component ) {
-			echo self::component_shell( // phpcs:ignore WordPress.Security.EscapeOutput -- built and escaped below.
+			$shell = self::component_shell(
 				(string) $component['type'],
 				(string) $component['_id'],
 				isset( $catalogue[ $component['type'] ] ) ? (string) $component['schema'] : '',
 				(array) $component['data']
 			);
+			echo $shell; // phpcs:ignore WordPress.Security.EscapeOutput -- component_shell() escapes every value it interpolates.
 		}
-		echo '</div>';
+		echo '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- literal closing tag, no data.
 
 		echo '<div class="sdc-builder__add">';
 		echo '<select data-sdc-add-select>';

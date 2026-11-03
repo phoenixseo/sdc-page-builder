@@ -114,8 +114,8 @@ class Sdc_Renderer {
 	 * @return string HTML.
 	 */
 	private static function render_leaf( array $field, $value, $prefix ) {
-		$field['value']  = $value;
-		$field['prefix'] = $prefix;
+		$field['value']    = $value;
+		$field['prefix']   = $prefix;
 		$field['_prepare'] = false; // Let the host prepare it itself.
 
 		return '<div class="sdc-field sdc-field--' . esc_attr( $field['type'] ) . '" data-sdc-name="' . esc_attr( $field['name'] ) . '">'

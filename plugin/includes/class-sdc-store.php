@@ -140,7 +140,7 @@ class Sdc_Store {
 		if ( is_string( $raw ) && '' !== $raw ) {
 			$raw = json_decode( $raw, true );
 		}
-		if ( ! is_array( $raw ) || empty( $raw['components'] ) && ! isset( $raw['v'] ) ) {
+		if ( ! is_array( $raw ) || ( empty( $raw['components'] ) && ! isset( $raw['v'] ) ) ) {
 			return self::empty_document();
 		}
 
