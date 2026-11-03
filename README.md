@@ -2,7 +2,7 @@
 
 Ein komponentenbasierter Page-Builder für WordPress, der **Advanced Custom Fields** und **Secure Custom Fields** als Feld-Lieferanten nutzt — und Seiten in einem einzigen JSON-Dokument speichert.
 
-**Status: 0.1.0-dev (Meilenstein M1 grün).** Das Fundament steht und ist gemessen; die Admin-Oberfläche fehlt noch. Das ist bewusst so herum: erst die Datenschicht beweisen, dann die Bedienung bauen.
+**Status: 0.1.0.** Editor, Speicherung, Frontend-Ausgabe, Revisionen und Import/Export stehen und sind gemessen. Offen ist die Freigabe für WordPress.org sowie Live-Vorschau und Undo im Editor.
 
 ## Warum es das gibt
 
@@ -24,6 +24,129 @@ Dieser Builder löst beides, ohne die Felder neu zu erfinden: Komponenten sind A
 | Plattform | WordPress + SCF 6.9.7, PHP 8.3 |
 
 Reproduzierbar: `wp eval-file plugin/tests/m1-verify.php 30`
+
+## Was Single Directory Components sind
+
+Eine Komponente will man anfassen können, ohne sie zu suchen. **Single Directory Components** (SDC, „Komponente in einem Verzeichnis") heißt genau das: Definition, Markup, Styles, Skripte und Doku eines Bausteins liegen in **einem Ordner**. Nicht verstreut über `templates/`, `css/` und `js/`.
+
+Der Name stammt aus Drupal. Dort war SDC ab Version 10.1 ein experimentelles Modul und gehört seit 10.3 zum Core. Die Konvention sieht so aus:
+
+```
+my_theme/components/card/
+├── card.component.yml    Metadaten: Props und Slots
+├── card.twig             Markup
+├── card.css              Styles, beim Rendern automatisch geladen
+└── card.js               Verhalten, ebenfalls automatisch geladen
+```
+
+Drupal prüft jedes Blattverzeichnis unter `components/` auf eine `.component.yml`. Fehlt sie, wird der Ordner ignoriert. Deshalb darf man `atoms/`, `molecules/` und `organisms/` dazwischenlegen, ohne die Erkennung zu stören — gezählt wird das Blatt. Die `.component.yml` beschreibt die **Props** (Werte, die die Komponente erwartet) und die **Slots** (Inhalte, die man hineinsteckt).
+
+Der Gewinn ist nicht das Dateiformat, sondern die Frage „wo gehört das hin?". Sie hat genau eine Antwort. Und Wegwerfen ist ein `rm -r`.
+
+### Woher die Idee kommt
+
+Brad Frost hat das Muster in *Atomic Design* beschrieben (2016, kostenlos online unter [atomicdesign.bradfrost.com](https://atomicdesign.bradfrost.com/)): Oberflächen bestehen aus Bausteinen, die sich zu größeren Bausteinen zusammensetzen — Atome, Moleküle, Organismen, Templates, Seiten. Sein Werkzeug dafür war [Pattern Lab](https://patternlab.io/), ein statischer Generator, der Muster aus Ordnern einliest, ineinander verschachtelt und als Pattern Library ausgibt.
+
+Zwei Gedanken daraus tragen bis heute:
+
+- **Verschachteln statt kopieren.** Wer die Karte ändert, ändert alle Karten. Frost vergleicht das mit russischen Puppen.
+- **Herkunft mitdenken.** Pattern Lab zeigt zu jedem Muster, woraus es besteht und wo es verwendet wird. Das ist die Grundlage für die Frage „was bricht, wenn ich das ändere?".
+
+Der Begriff SDC ist Drupals Name für diese Disziplin, nicht Frosts. Die Idee dahinter ist seine.
+
+### Was man damit anstellen kann
+
+- **Ein Baustein, viele Seiten.** Der Typ wird einmal definiert. Jede Seite speichert nur ihre Werte und eine `_id` — nicht eine Kopie des Markups.
+- **Mehrere Exemplare pro Seite.** Zwei FAQ-Blöcke sind zwei Einträge desselben Typs, jeder mit eigenem Präfix. Sie kollidieren nicht.
+- **Markup gehört dem Theme.** Ein `render.php` ändert das Aussehen einer Komponente, ohne das Plugin anzufassen — und ohne dass das nächste Plugin-Update die Änderung überschreibt.
+- **Weiterentwickeln ohne Altlasten.** Das Dokument trägt `schema: "teaser@1"`. Kommen Felder dazu, bleibt der alte Inhalt lesbar.
+- **Umziehen.** Ein Ordner kopieren bringt die Komponente in ein anderes Projekt. Inhalte gehen als JSON-Export mit.
+- **Bedingt eingreifen.** Ein Filter kann eine Komponente umschreiben oder weglassen — etwa für Besucher ohne Anmeldung.
+- **Design-System ohne Zusatzwerkzeug.** Eine Seite, die jede Komponente einmal zeigt, ist die Pattern Library. Dafür braucht es kein Storybook und keinen zweiten Build.
+- **Außerhalb des Builders weiterverwenden.** `Sdc_Frontend::component_fields_html( $type, $data )` liefert dasselbe Feldmarkup in einem normalen Theme-Template. Die Felddefinition gilt also an beiden Stellen.
+
+### Und im SDC Page Builder
+
+| Drupal SDC | SDC Page Builder |
+|---|---|
+| `components/<name>/` | `sdc-components/<name>/` |
+| `<name>.component.yml` — Props und Slots | `group_sdc_component_<name>.json` — ACF-Feldgruppe, Felder sind die Props |
+| `<name>.twig` | `render.php` |
+| `<name>.css`, `<name>.js`, automatisch geladen | nicht automatisch — das Theme lädt seine Assets wie gewohnt |
+| Props kommen beim Rendern als Argumente | `$data` im Template, die gespeicherten Werte |
+| Slots für verschachtelte Inhalte | keine — Komponenten sind Geschwister in einer Liste |
+
+Zwei Unterschiede sollte man kennen, bevor man SDC-Erwartungen überträgt:
+
+**Keine Slots.** Eine Komponente nimmt keine anderen Komponenten als Inhalt auf. Verschachtelung entsteht über die Reihenfolge auf der Seite, nicht über Parameter. Wer tiefer verschachteln will, baut den Container als eigenen Typ mit eigenen Feldern.
+
+**Keine automatischen Assets.** `render.php` liefert Markup, sonst nichts. CSS und JS kommen aus der normalen Asset-Kette des Themes. Das ist Absicht: ein Plugin, das ungefragt Stylesheets einbindet, kollidiert mit jedem Build-Setup.
+
+### Beispiel: eine Teaser-Komponente
+
+Zwei Dateien in einem Ordner, mehr braucht es nicht.
+
+```
+wp-content/themes/<dein-theme>/sdc-components/teaser/
+├── group_sdc_component_teaser.json
+└── render.php
+```
+
+**1. Die Felder** — `group_sdc_component_teaser.json`:
+
+```json
+{
+  "key": "group_sdc_component_teaser",
+  "title": "Teaser",
+  "sdc_description": "Karte mit Überschrift, Text und Link.",
+  "sdc_icon": "screenoptions",
+  "sdc_version": 1,
+  "fields": [
+    { "key": "field_sdc_teaser_heading", "label": "Überschrift", "name": "heading", "type": "text", "required": 1 },
+    { "key": "field_sdc_teaser_text", "label": "Text", "name": "text", "type": "textarea", "required": 0, "rows": 3 },
+    { "key": "field_sdc_teaser_link", "label": "Link", "name": "link", "type": "link", "required": 0, "return_format": "array" }
+  ],
+  "location": [
+    [ { "param": "sdc_component", "operator": "==", "value": "1" } ]
+  ],
+  "menu_order": 0,
+  "position": "normal",
+  "style": "default",
+  "label_placement": "top",
+  "instruction_placement": "label",
+  "active": true,
+  "description": ""
+}
+```
+
+Drei Dinge sind daran wichtig: Der Key beginnt mit `group_sdc_component_`, der Rest ist der Typ (`teaser`). Jedes Feld hat einen eigenen Key und einen `name`, unter dem der Wert im Dokument landet. Und die Location-Regel `sdc_component == 1` hält die Gruppe von den normalen Metaboxen fern.
+
+**2. Das Markup** — `render.php`:
+
+```php
+<?php
+$link = isset( $data['link'] ) && is_array( $data['link'] ) ? $data['link'] : array();
+?>
+<article class="teaser">
+	<h3 class="teaser__title"><?php echo esc_html( $data['heading'] ?? '' ); ?></h3>
+
+	<?php if ( ! empty( $data['text'] ) ) : ?>
+		<p class="teaser__text"><?php echo esc_html( $data['text'] ); ?></p>
+	<?php endif; ?>
+
+	<?php if ( ! empty( $link['url'] ) ) : ?>
+		<a class="teaser__link" href="<?php echo esc_url( $link['url'] ); ?>">
+			<?php echo esc_html( $link['title'] ?? $link['url'] ); ?>
+		</a>
+	<?php endif; ?>
+</article>
+```
+
+**3. Benutzen.** Seite öffnen, im Builder „Teaser" wählen, Felder füllen, speichern. Im Frontend steht `<article class="teaser">`; von der Komponente selbst ist im HTML nichts zu sehen, was an den Builder erinnert.
+
+**4. Stylen.** `render.php` liefert nur Markup. Das CSS gehört ins Theme — `wp_enqueue_style()` in `functions.php`, ein Stylesheet pro Komponente, oder was dein Build ohnehin macht.
+
+Wer die Felder nachträglich ändert, ändert den Typ für **alle** Seiten, die ihn benutzen. Neue Felder sind unkritisch. Ein Feld umbenennen heißt: alte Werte liegen unter dem alten Namen. Deshalb ist `sdc_version` im JSON und `schema` im Dokument — die Migration hängt an der Version, nicht am Zufall.
 
 ## Aufbau
 

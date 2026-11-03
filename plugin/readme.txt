@@ -53,6 +53,12 @@ The plugin also reads the parent theme and `wp-content/sdc-components/`, so comp
 
 Do not add components to the plugin's own `schemas/` directory: it ships the `hero` and `faq` examples and is replaced on every update.
 
+= What are single directory components? =
+
+A component whose definition, markup, styles and documentation live in one directory instead of being spread across `templates/`, `css/` and `js/`. The term comes from Drupal, where it has been part of core since 10.3; the idea behind it is Brad Frost's *Atomic Design* (2016, free at atomicdesign.bradfrost.com) and Pattern Lab. One folder per component means one obvious place to look, one thing to copy, and `rm -r` to remove it.
+
+This plugin borrows the folder discipline, not the whole system. Two differences matter: components are siblings in a page's list, so there are no slots for nesting other components inside one; and the plugin attaches no CSS or JS, so styles stay in your theme's asset pipeline. See the repository README for the full mapping.
+
 = Can I control the HTML of a component? =
 
 Yes, two ways. A `render.php` next to the component's JSON renders that component; it receives `$type`, `$data` (raw stored values) and `$component` (the document entry), and can call `Sdc_Frontend::component_fields_html( $type, $data )` to reuse the default field markup. The `sdc_pb_component_html` filter then has the last word over the finished HTML and can also drop a component by returning an empty string.
