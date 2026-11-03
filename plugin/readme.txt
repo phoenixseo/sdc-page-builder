@@ -37,6 +37,27 @@ Agencies and developers who build the same page patterns repeatedly (hero, FAQ, 
 * **Escaped output** — stored values are never treated as HTML; the editor's data attributes do not reach the frontend.
 * **Permission-aware REST routes** — every route checks the capability to edit that specific page.
 * **i18n-ready** — all strings use the text domain `sdc-page-builder`; a POT file ships in `languages/`.
+* **Your components live in your theme** — drop a JSON field group (and optionally a `render.php`) into your theme; plugin updates never touch them.
+
+= Where do I put my own components? =
+
+In your theme, one directory per component:
+
+```
+wp-content/themes/your-theme/sdc-components/hero/
+    group_sdc_component_hero.json    field group (required)
+    render.php                       markup (optional)
+```
+
+The plugin also reads the parent theme and `wp-content/sdc-components/`, so components survive a theme switch when they live in `wp-content`. The `sdc_pb_component_dirs` filter adds other locations.
+
+Do not add components to the plugin's own `schemas/` directory: it ships the `hero` and `faq` examples and is replaced on every update.
+
+= Can I control the HTML of a component? =
+
+Yes, two ways. A `render.php` next to the component's JSON renders that component; it receives `$type`, `$data` (raw stored values) and `$component` (the document entry), and can call `Sdc_Frontend::component_fields_html( $type, $data )` to reuse the default field markup. The `sdc_pb_component_html` filter then has the last word over the finished HTML and can also drop a component by returning an empty string.
+
+Without either, the plugin renders generic markup (`div.sdc-component--<type>`, one span per field) that a theme styles with CSS.
 
 == Installation ==
 

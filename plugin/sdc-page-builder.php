@@ -114,12 +114,20 @@ function sdc_pb_missing_host_notice() {
 /**
  * Let the builder's component schemas take part in ACF/SCF Local JSON loading.
  *
+ * The plugin's own `schemas/` holds the examples. The site's components live
+ * in the theme (`sdc-components/`) or in `wp-content/sdc-components/`, one
+ * directory per component — see `Sdc_Schema::json_paths()`.
+ *
  * @param array $paths Directories ACF reads JSON from.
  * @return array
  */
 function sdc_pb_json_load_path( $paths ) {
-	$paths   = (array) $paths;
-	$paths[] = Sdc_Schema::dir();
+	$paths = (array) $paths;
+
+	foreach ( Sdc_Schema::json_paths() as $path ) {
+		$paths[] = $path;
+	}
+
 	return $paths;
 }
 add_filter( 'acf/json/load_paths', 'sdc_pb_json_load_path' );

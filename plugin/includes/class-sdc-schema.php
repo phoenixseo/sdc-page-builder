@@ -27,6 +27,16 @@ class Sdc_Schema {
 	const KEY_PREFIX = 'group_sdc_component_';
 
 	/**
+	 * Folder a site owner uses for their own components.
+	 *
+	 * The plugin ships examples in `schemas/`, but that directory belongs to
+	 * the plugin: a component written there is gone after the next update.
+	 * Site components live in the theme (or in `wp-content/`), one directory
+	 * per component, and are read through the same loader.
+	 */
+	const USER_DIR = 'sdc-components';
+
+	/**
 	 * Cache of resolved components for this request.
 	 *
 	 * @var array|null
@@ -48,6 +58,122 @@ class Sdc_Schema {
 	 */
 	public static function dir() {
 		return SDC_PB_DIR . 'schemas/';
+	}
+
+	/**
+	 * Directories a site owner can drop components into, before filtering.
+	 *
+	 * Child theme first: a component the parent theme ships has to be
+	 * overridable. `wp-content/sdc-components/` comes last because it survives
+	 * a theme switch — the only place that keeps components when the theme
+	 * changes.
+	 *
+	 * @return string[]
+	 */
+	public static function default_user_dirs() {
+		$dirs = array();
+
+		if ( function_exists( 'get_stylesheet_directory' ) ) {
+			$dirs[] = get_stylesheet_directory() . '/' . self::USER_DIR;
+			$dirs[] = get_template_directory() . '/' . self::USER_DIR;
+		}
+
+		if ( defined( 'WP_CONTENT_DIR' ) ) {
+			$dirs[] = WP_CONTENT_DIR . '/' . self::USER_DIR;
+		}
+
+		return $dirs;
+	}
+
+	/**
+	 * Site-owned component directories that exist, in load order.
+	 *
+	 * Filterable so a plugin can supply components from its own directory
+	 * instead of the theme.
+	 *
+	 * @return string[]
+	 */
+	public static function user_dirs() {
+		/**
+		 * Filters the directories scanned for site-owned components.
+		 *
+		 * @param string[] $dirs Absolute paths.
+		 */
+		$dirs = (array) apply_filters( 'sdc_pb_component_dirs', self::default_user_dirs() );
+
+		$found = array();
+		foreach ( $dirs as $dir ) {
+			$dir = untrailingslashit( (string) $dir );
+			if ( '' === $dir || ! is_dir( $dir ) ) {
+				continue;
+			}
+			$found[] = $dir;
+		}
+
+		return array_values( array_unique( $found ) );
+	}
+
+	/**
+	 * Every directory the host must scan for component JSON.
+	 *
+	 * ACF's Local JSON loader reads exactly one level — its `scan_files()`
+	 * skips sub directories outright (read in ACF 6.8.10) — so a component in
+	 * `sdc-components/hero/` would never be found. Adding each immediate sub
+	 * directory as its own path is what makes one directory per component
+	 * work without touching the loader.
+	 *
+	 * @return string[]
+	 */
+	public static function json_paths() {
+		$paths = array( self::dir() );
+
+		foreach ( self::user_dirs() as $dir ) {
+			$paths[] = $dir;
+
+			$entries = @scandir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_scandir -- Reading a possibly unreadable theme directory must not warn.
+			foreach ( (array) $entries as $entry ) {
+				$entry = (string) $entry;
+				if ( '' === $entry || '.' === $entry[0] ) {
+					continue;
+				}
+				if ( is_dir( $dir . '/' . $entry ) ) {
+					$paths[] = $dir . '/' . $entry;
+				}
+			}
+		}
+
+		return array_values( array_unique( $paths ) );
+	}
+
+	/**
+	 * Theme render template for a component type, if the site ships one.
+	 *
+	 * Convention: `sdc-components/<type>/render.php`, next to the JSON that
+	 * defines the component. The first match wins, so a child theme overrides
+	 * the parent theme and both override `wp-content/sdc-components/`.
+	 *
+	 * @param string $type Component type.
+	 * @return string Absolute path, or an empty string when there is none.
+	 */
+	public static function template( $type ) {
+		$type = (string) $type;
+
+		// The type comes out of a stored document; a path separator in it
+		// would turn a template lookup into a file inclusion outside the
+		// component directories.
+		if ( '' === $type || ! preg_match( '/^[A-Za-z0-9_\-]+$/', $type ) ) {
+			return '';
+		}
+
+		foreach ( self::user_dirs() as $dir ) {
+			foreach ( array( $dir . '/' . $type . '/render.php', $dir . '/' . $type . '.php' ) as $file ) {
+				if ( is_readable( $file ) ) {
+					return $file;
+				}
+			}
+		}
+
+		return '';
 	}
 
 	/**

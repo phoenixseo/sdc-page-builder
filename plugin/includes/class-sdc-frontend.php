@@ -97,6 +97,12 @@ class Sdc_Frontend {
 	/**
 	 * Render one component from the document.
 	 *
+	 * Three layers, in this order: a theme template (`render.php` next to the
+	 * component's JSON), the generic markup built from the field definitions,
+	 * then the `sdc_pb_component_html` filter over whichever of the two won.
+	 * A theme can therefore restyle, replace, or drop a component without
+	 * touching the plugin.
+	 *
 	 * An unknown type is skipped and logged: a document can outlive the plugin
 	 * version that wrote it, and a page must not go white for that reason.
 	 *
@@ -115,19 +121,90 @@ class Sdc_Frontend {
 			return '';
 		}
 
-		$fields = Sdc_Field_Adapter::get_fields( Sdc_Field_Adapter::get_field_group( $meta['key'] ) );
-		$data   = isset( $component['data'] ) && is_array( $component['data'] ) ? $component['data'] : array();
+		$data = isset( $component['data'] ) && is_array( $component['data'] ) ? $component['data'] : array();
 
-		$body = self::render_fields( $fields, $data, 1 );
-		if ( '' === trim( $body ) ) {
+		$html = self::render_template( $type, $data, $component );
+
+		if ( null === $html ) {
+			$body = self::component_fields_html( $type, $data );
+			if ( '' === trim( $body ) ) {
+				return '';
+			}
+
+			$html = sprintf(
+				'<div class="sdc-component sdc-component--%1$s">%2$s</div>',
+				esc_attr( $type ),
+				$body
+			);
+		}
+
+		/**
+		 * Filters the HTML of one rendered component.
+		 *
+		 * Runs after the theme template, if there was one, so a filter is the
+		 * last word. Returning an empty string removes the component.
+		 *
+		 * @param string $html      Component HTML.
+		 * @param string $type      Component type.
+		 * @param array  $data      Stored values of this instance.
+		 * @param array  $component Full document entry (`_id`, `type`, `schema`, `data`).
+		 */
+		return (string) apply_filters( 'sdc_pb_component_html', $html, $type, $data, $component );
+	}
+
+	/**
+	 * Render through a theme template, when the site ships one.
+	 *
+	 * The template is theme code, so its output is not escaped — same trust
+	 * boundary as a template part. It receives `$type`, `$data` (raw stored
+	 * values) and `$component` (the document entry) and echoes its markup.
+	 *
+	 * @param string $type      Component type.
+	 * @param array  $data      Stored values; read by the template, not here.
+	 * @param array  $component Document entry; read by the template, not here.
+	 * @return string|null HTML, or null when there is no template.
+	 */
+	private static function render_template( $type, array $data, array $component ) {
+		$file = Sdc_Schema::template( $type );
+
+		if ( '' === $file ) {
+			return null;
+		}
+
+		// The template reads $type, $data and $component as plain local
+		// variables — no extraction, no globals. Documented in the README so a
+		// theme author knows exactly which names exist.
+		$render = static function () use ( $file, $type, $data, $component ) {
+			ob_start();
+			include $file;
+
+			return (string) ob_get_clean();
+		};
+
+		return $render();
+	}
+
+	/**
+	 * Default markup for a component's fields.
+	 *
+	 * Public because a theme template usually wants the generic field output
+	 * and only the surrounding element of its own: calling this keeps the
+	 * container rules and the escaping in one place instead of copying them
+	 * into every `render.php`.
+	 *
+	 * @param string $type Component type.
+	 * @param array  $data Stored values.
+	 * @return string HTML; empty string for an unknown type.
+	 */
+	public static function component_fields_html( $type, $data ) {
+		$meta = Sdc_Schema::get( (string) $type );
+		if ( ! $meta ) {
 			return '';
 		}
 
-		return sprintf(
-			'<div class="sdc-component sdc-component--%1$s">%2$s</div>',
-			esc_attr( $type ),
-			$body
-		);
+		$fields = Sdc_Field_Adapter::get_fields( Sdc_Field_Adapter::get_field_group( $meta['key'] ) );
+
+		return self::render_fields( $fields, is_array( $data ) ? $data : array(), 1 );
 	}
 
 	/**

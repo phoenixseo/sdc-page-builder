@@ -35,7 +35,7 @@ plugin/
 │   ├── class-sdc-store.php           _sdc_data: ein Key, ein Write, Revisionen
 │   ├── class-sdc-schema.php          Komponenten = Feldgruppen mit group_sdc_component_*
 │   └── class-sdc-rest.php            sdc-pb/v1/pages/{id}, sdc-pb/v1/components
-├── schemas/                          Komponenten als ACF-Local-JSON
+├── schemas/                          mitgelieferte Beispiel-Komponenten (hero, faq)
 └── tests/m1-verify.php               20 Prüfungen, end-to-end
 ```
 
@@ -52,7 +52,72 @@ plugin/
 
 `_id` gibt jeder Komponente eine stabile Identität für Sortieren und Undo. `schema` erlaubt Versionierung: alte Daten bleiben lesbar, migriert wird beim Lesen.
 
-**Komponenten definieren:** eine Feldgruppe als JSON in `plugin/schemas/`, Key mit Präfix `group_sdc_component_`. Der Rest des Keys ist der Typ (`group_sdc_component_faq` → `faq`). Eine Location-Regel auf `sdc_component == 1` sorgt dafür, dass der Wirt die Gruppe nie als normale Metabox rendert.
+**Komponenten definieren:** eine Feldgruppe als JSON mit Key-Präfix `group_sdc_component_`. Der Rest des Keys ist der Typ (`group_sdc_component_faq` → `faq`). Eine Location-Regel auf `sdc_component == 1` sorgt dafür, dass der Wirt die Gruppe nie als normale Metabox rendert.
+
+## Eigene Komponenten anlegen
+
+Ein Komponententyp ist ein Verzeichnis — JSON für die Felder, optional `render.php` für das Markup:
+
+```
+wp-content/themes/<dein-theme>/sdc-components/
+└── hero/
+    ├── group_sdc_component_hero.json    Feldgruppe (Pflicht)
+    └── render.php                       Markup (optional)
+```
+
+Gesucht wird in dieser Reihenfolge, der erste Treffer gewinnt:
+
+1. `get_stylesheet_directory()/sdc-components/` — Child-Theme
+2. `get_template_directory()/sdc-components/` — Parent-Theme
+3. `WP_CONTENT_DIR/sdc-components/` — überlebt einen Theme-Wechsel
+
+Andere Orte per Filter:
+
+```php
+add_filter( 'sdc_pb_component_dirs', function ( $dirs ) {
+    $dirs[] = __DIR__ . '/meine-komponenten';
+    return $dirs;
+} );
+```
+
+**Nicht** in `plugin/schemas/` schreiben: dort liegen nur die mitgelieferten Beispiele (`hero`, `faq`), und das Verzeichnis gehört dem Plugin — eigene Dateien sind beim nächsten Update weg.
+
+### `render.php`
+
+Die Datei läuft im Scope der Renderer-Methode und sieht drei Variablen:
+
+| Variable | Inhalt |
+|---|---|
+| `$type` | Komponententyp, z. B. `hero` |
+| `$data` | gespeicherte Werte dieses Exemplars, roh aus dem Dokument |
+| `$component` | kompletter Dokumenteintrag (`_id`, `type`, `schema`, `data`) |
+
+```php
+<article class="hero">
+	<h2><?php echo esc_html( $data['heading'] ); ?></h2>
+	<p><?php echo esc_html( $data['subline'] ); ?></p>
+	<?php echo Sdc_Frontend::component_fields_html( $type, $data ); ?>
+</article>
+```
+
+Zwei Dinge sind bewusst so: `$data` kommt **unescaped** an (Escaping ist Aufgabe des Templates — es ist Theme-Code, gleiche Vertrauensgrenze wie ein Template-Part), und `Sdc_Frontend::component_fields_html()` liefert das Standard-Markup der Felder, wenn nur der Rahmen eigen sein soll. Ohne `render.php` rendert das Plugin generisch (`div.sdc-component--<typ>` mit `sdc-field--<name>`-Spans).
+
+### Letzter Eingriff: der Filter
+
+```php
+add_filter( 'sdc_pb_component_html', function ( $html, $type, $data, $component ) {
+    if ( 'hero' === $type && empty( $data['heading'] ) ) {
+        return ''; // Komponente weglassen
+    }
+    return $html;
+}, 10, 4 );
+```
+
+Der Filter läuft **nach** dem Template und hat das letzte Wort; ein leerer Rückgabewert entfernt die Komponente von der Seite.
+
+### Ein Verzeichnis pro Komponente — warum
+
+ACF liest Local JSON nur eine Ebene tief (`scan_files()` überspringt Unterverzeichnisse). Das Plugin meldet deshalb jedes Unterverzeichnis von `sdc-components/` einzeln als Ladepfad an — dadurch funktioniert „ein Ordner pro Komponente" mit unverändertem ACF-Loader. Eine flache Ablage (`sdc-components/hero.json`) geht ebenfalls.
 
 ## Voraussetzungen
 
@@ -72,7 +137,7 @@ wp plugin activate sdc-page-builder
 
 ## Was noch fehlt
 
-M1 ist die Datenschicht. Es folgen: Admin-Oberfläche (Komponentenliste, Umsortieren, Vorschau), Renderer fürs Frontend, Undo/Restore-UI, Import/Export.
+Das Plugin ist funktional vollständig: Editor, REST-Speicherung, Revisionsverlauf, Import/Export, Frontend-Ausgabe und Theme-Templates. Offen ist die Freigabe für WordPress.org (Screenshots, Zweit-Review) sowie Live-Vorschau und Undo im Editor.
 
 ## Lizenz
 

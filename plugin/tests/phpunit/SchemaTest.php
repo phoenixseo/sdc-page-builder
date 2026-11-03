@@ -89,4 +89,55 @@ class SchemaTest extends Sdc_TestCase {
 		$this->assertSame( 'textarea', $hero['subline'] );
 		$this->assertNotContains( 'link', $faq );
 	}
+
+	/**
+	 * One directory per component: the host's loader reads one level only.
+	 *
+	 * ACF's `scan_files()` skips sub directories, so a component in
+	 * `sdc-components/hero/` is invisible unless that sub directory is
+	 * registered as its own path. This asserts the expansion.
+	 */
+	public function test_json_paths_include_each_component_subdirectory() {
+		$base = untrailingslashit( get_temp_dir() ) . '/sdc-paths-' . wp_generate_password( 8, false );
+		$sub  = $base . '/' . Sdc_Schema::USER_DIR . '/hero';
+
+		$this->assertTrue( mkdir( $sub, 0777, true ) );
+		file_put_contents( $sub . '/group_sdc_component_hero.json', '{"key":"group_sdc_component_hero"}' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
+
+		add_filter(
+			'sdc_pb_component_dirs',
+			function () use ( $base ) {
+				return array( $base . '/' . Sdc_Schema::USER_DIR );
+			}
+		);
+
+		$paths = Sdc_Schema::json_paths();
+
+		remove_all_filters( 'sdc_pb_component_dirs' );
+
+		$this->assertContains( $base . '/' . Sdc_Schema::USER_DIR, $paths );
+		$this->assertContains( $sub, $paths );
+		$this->assertContains( Sdc_Schema::dir(), $paths );
+
+		unlink( $sub . '/group_sdc_component_hero.json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Test fixture cleanup.
+		rmdir( $sub );
+		rmdir( $base . '/' . Sdc_Schema::USER_DIR );
+		rmdir( $base );
+	}
+
+	/**
+	 * A directory that does not exist is not offered to the host.
+	 */
+	public function test_missing_component_dirs_are_ignored() {
+		add_filter(
+			'sdc_pb_component_dirs',
+			function () {
+				return array( '/nonexistent/sdc-components' );
+			}
+		);
+
+		$this->assertSame( array(), Sdc_Schema::user_dirs() );
+
+		remove_all_filters( 'sdc_pb_component_dirs' );
+	}
 }
