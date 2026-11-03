@@ -102,7 +102,7 @@ class SchemaTest extends Sdc_TestCase {
 		$sub  = $base . '/' . Sdc_Schema::USER_DIR . '/hero';
 
 		$this->assertTrue( mkdir( $sub, 0777, true ) );
-		file_put_contents( $sub . '/group_sdc_component_hero.json', '{"key":"group_sdc_component_hero"}' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
+		file_put_contents( $sub . '/definition.json', '{"key":"group_sdc_component_hero"}' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
 
 		add_filter(
 			'sdc_pb_component_dirs',
@@ -119,7 +119,7 @@ class SchemaTest extends Sdc_TestCase {
 		$this->assertContains( $sub, $paths );
 		$this->assertContains( Sdc_Schema::dir(), $paths );
 
-		unlink( $sub . '/group_sdc_component_hero.json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Test fixture cleanup.
+		unlink( $sub . '/definition.json' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Test fixture cleanup.
 		rmdir( $sub );
 		rmdir( $base . '/' . Sdc_Schema::USER_DIR );
 		rmdir( $base );
@@ -139,5 +139,67 @@ class SchemaTest extends Sdc_TestCase {
 		$this->assertSame( array(), Sdc_Schema::user_dirs() );
 
 		remove_all_filters( 'sdc_pb_component_dirs' );
+	}
+
+	/**
+	 * A component keeps the file name it was loaded from.
+	 *
+	 * The host names JSON files after the group key. Left alone, saving
+	 * `definition.json` from the admin would rename it to
+	 * `group_sdc_component_hero.json` and leave a stale copy behind.
+	 */
+	public function test_saving_a_component_keeps_its_file_name() {
+		$file = Sdc_Schema::dir() . 'hero/definition.json';
+		$post = array( 'key' => Sdc_Schema::KEY_PREFIX . 'hero' );
+
+		$this->assertSame( 'definition.json', Sdc_Schema::save_file_name( 'group_sdc_component_hero.json', $post, $file ) );
+	}
+
+	/**
+	 * The file a component lives in is found by its key, not its name.
+	 *
+	 * Every component directory holds a `definition.json`, so the name alone
+	 * cannot say which component a file belongs to.
+	 */
+	public function test_file_for_key_finds_the_defining_file() {
+		$this->assertSame( Sdc_Schema::dir() . 'hero/definition.json', Sdc_Schema::file_for_key( 'group_sdc_component_hero' ) );
+		$this->assertSame( Sdc_Schema::dir() . 'faq/definition.json', Sdc_Schema::file_for_key( 'group_sdc_component_faq' ) );
+		$this->assertSame( '', Sdc_Schema::file_for_key( 'group_sdc_component_does_not_exist' ) );
+		$this->assertSame( '', Sdc_Schema::file_for_key( 'group_other_plugin' ) );
+	}
+
+	/**
+	 * A component's edit lands in its own directory, not in `acf-json/`.
+	 *
+	 * Leaving the host's save path in place would create a second file
+	 * defining the same key — the loader would then see the component twice.
+	 */
+	public function test_save_paths_point_at_the_component_directory() {
+		$paths = Sdc_Schema::save_paths( array( '/tmp/acf-json' ), array( 'key' => 'group_sdc_component_hero' ) );
+
+		$this->assertSame( array( Sdc_Schema::dir() . 'hero' ), $paths );
+
+		$untouched = Sdc_Schema::save_paths( array( '/tmp/acf-json' ), array( 'key' => 'group_other_plugin' ) );
+		$this->assertSame( array( '/tmp/acf-json' ), $untouched );
+	}
+
+	/**
+	 * Only files in the plugin's own component directories are claimed.
+	 *
+	 * A field group from another plugin's `acf-json/` belongs to the host's
+	 * default naming; renaming it would break that plugin's own layout.
+	 */
+	public function test_save_file_name_leaves_foreign_groups_alone() {
+		$proposed = 'group_sdc_component_hero.json';
+
+		$this->assertSame(
+			$proposed,
+			Sdc_Schema::save_file_name( $proposed, array( 'key' => Sdc_Schema::KEY_PREFIX . 'hero' ), '/some/other/plugin/acf-json/' . $proposed )
+		);
+		$this->assertSame(
+			'group_sdc_other.json',
+			Sdc_Schema::save_file_name( 'group_sdc_other.json', array( 'key' => 'group_sdc_other' ), Sdc_Schema::dir() . 'el.json' )
+		);
+		$this->assertFalse( Sdc_Schema::owns_file( '' ) );
 	}
 }

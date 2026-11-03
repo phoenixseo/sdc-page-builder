@@ -282,7 +282,7 @@ class FrontendTest extends Sdc_TestCase {
 		$this->assertTrue( mkdir( $dir, 0777, true ) );
 
 		file_put_contents( $dir . '/render.php', $code . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
-		file_put_contents( $dir . '/group_sdc_component_' . $type . '.json', wp_json_encode( array( 'key' => Sdc_Schema::KEY_PREFIX . $type ) ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
+		file_put_contents( $dir . '/definition.json', wp_json_encode( array( 'key' => Sdc_Schema::KEY_PREFIX . $type ) ) ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
 
 		return $base . '/' . Sdc_Schema::USER_DIR;
 	}

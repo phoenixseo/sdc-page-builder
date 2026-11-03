@@ -122,27 +122,46 @@ class Sdc_Schema {
 	 * directory as its own path is what makes one directory per component
 	 * work without touching the loader.
 	 *
+	 * Because every component owns its directory, the file inside it can carry
+	 * the same name in every component: `definition.json`.
+	 *
 	 * @return string[]
 	 */
 	public static function json_paths() {
-		$paths = array( self::dir() );
+		$paths = array();
 
-		foreach ( self::user_dirs() as $dir ) {
-			$paths[] = $dir;
+		foreach ( array_merge( array( self::dir() ), self::user_dirs() ) as $root ) {
+			$paths[] = $root;
 
-			$entries = @scandir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_scandir -- Reading a possibly unreadable theme directory must not warn.
-			foreach ( (array) $entries as $entry ) {
-				$entry = (string) $entry;
-				if ( '' === $entry || '.' === $entry[0] ) {
-					continue;
-				}
-				if ( is_dir( $dir . '/' . $entry ) ) {
-					$paths[] = $dir . '/' . $entry;
-				}
+			foreach ( self::sub_dirs( untrailingslashit( $root ) ) as $sub ) {
+				$paths[] = $sub;
 			}
 		}
 
 		return array_values( array_unique( $paths ) );
+	}
+
+	/**
+	 * Immediate sub directories of a directory, sorted, . and .. removed.
+	 *
+	 * @param string $dir Absolute path.
+	 * @return string[] Absolute paths.
+	 */
+	private static function sub_dirs( $dir ) {
+		$found = array();
+
+		$entries = @scandir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_scandir -- Reading a possibly unreadable theme directory must not warn.
+		foreach ( (array) $entries as $entry ) {
+			$entry = (string) $entry;
+			if ( '' === $entry || '.' === $entry[0] ) {
+				continue;
+			}
+			if ( is_dir( $dir . '/' . $entry ) ) {
+				$found[] = $dir . '/' . $entry;
+			}
+		}
+
+		return $found;
 	}
 
 	/**
@@ -174,6 +193,132 @@ class Sdc_Schema {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Whether a JSON file lives in one of the plugin's component directories.
+	 *
+	 * @param string $file Absolute path, or an empty string.
+	 * @return bool
+	 */
+	public static function owns_file( $file ) {
+		$file = (string) $file;
+
+		if ( '' === $file ) {
+			return false;
+		}
+
+		$dir = trailingslashit( wp_normalize_path( dirname( $file ) ) );
+
+		foreach ( array_merge( array( self::dir() ), self::user_dirs() ) as $root ) {
+			// An empty root normalises to "/", which would match every path.
+			$root = untrailingslashit( wp_normalize_path( (string) $root ) );
+
+			if ( '' === $root || '/' === $root ) {
+				continue;
+			}
+
+			if ( 0 === strpos( $dir, trailingslashit( $root ) ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The file that defines a component, found by its group key.
+	 *
+	 * A component is one directory with one `definition.json`, so the file
+	 * name says nothing about which type it holds — the key inside does. The
+	 * host needs the file to write an edit back to, and its own save path
+	 * (`acf-json/`) is the wrong place for it.
+	 *
+	 * @param string $key Field group key, e.g. `group_sdc_component_hero`.
+	 * @return string Absolute path, or an empty string when nothing matches.
+	 */
+	public static function file_for_key( $key ) {
+		$key = (string) $key;
+
+		if ( 0 !== strpos( $key, self::KEY_PREFIX ) ) {
+			return '';
+		}
+
+		foreach ( self::json_paths() as $dir ) {
+			$dir     = untrailingslashit( $dir );
+			$entries = @scandir( $dir ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_scandir -- An unreadable directory must not warn.
+
+			foreach ( (array) $entries as $entry ) {
+				$entry = (string) $entry;
+
+				if ( '.json' !== substr( $entry, -5 ) ) {
+					continue;
+				}
+
+				$file = $dir . '/' . $entry;
+				$raw  = @file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents, WordPress.PHP.NoSilencedErrors.Discouraged -- Reading a component the admin may not be able to read must not warn.
+
+				if ( false === $raw ) {
+					continue;
+				}
+
+				$json = json_decode( (string) $raw, true );
+
+				if ( is_array( $json ) && isset( $json['key'] ) && $key === (string) $json['key'] ) {
+					return $file;
+				}
+			}
+		}
+
+		return '';
+	}
+
+	/**
+	 * Directory a component's field group is written back to.
+	 *
+	 * The host saves to its `save_json` setting, which knows nothing about
+	 * component directories — an edit in the admin would create a second copy
+	 * of the component outside its folder, and the loader would then see the
+	 * same key twice. Returning the component's own directory keeps one file
+	 * per component; a failed save is better than a silent duplicate.
+	 *
+	 * @param string[] $paths Paths the host proposed.
+	 * @param array    $post  Field group being saved.
+	 * @return string[]
+	 */
+	public static function save_paths( $paths, $post ) {
+		$file = self::file_for_key( isset( $post['key'] ) ? (string) $post['key'] : '' );
+
+		if ( '' === $file ) {
+			return (array) $paths;
+		}
+
+		return array( dirname( $file ) );
+	}
+
+	/**
+	 * File name a component's field group is saved under.
+	 *
+	 * The host names JSON files after the group key, which would rename
+	 * `definition.json` to `group_sdc_component_hero.json` on the first save
+	 * from the admin. A component that was loaded from a file keeps that
+	 * file's name; anything else is left to the host.
+	 *
+	 * @param string $filename  Name the host proposed.
+	 * @param array  $post      Field group being saved.
+	 * @param string $load_path File the group was loaded from, if any.
+	 * @return string
+	 */
+	public static function save_file_name( $filename, $post, $load_path ) {
+		$key = isset( $post['key'] ) ? (string) $post['key'] : '';
+
+		if ( 0 !== strpos( $key, self::KEY_PREFIX ) || ! self::owns_file( $load_path ) ) {
+			return $filename;
+		}
+
+		$existing = basename( (string) $load_path );
+
+		return '' === $existing ? $filename : $existing;
 	}
 
 	/**

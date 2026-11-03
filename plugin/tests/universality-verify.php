@@ -7,7 +7,7 @@
  * The claim under test: a second component type works in catalogue, save,
  * render and frontend without one line of type-specific PHP or JS. The way to
  * make that claim falsifiable is to run it against a type the plugin has never
- * seen in code — `hero` exists only as `schemas/group_sdc_component_hero.json`.
+ * seen in code — `hero` exists only as `schemas/hero/definition.json`.
  *
  * What is checked:
  *   1. The catalogue reports both types through the real REST route.
@@ -414,7 +414,7 @@ echo "\n== 7. Schema-Versionierung ==\n";
 $check( 'faq unverändert bei faq@1', 'faq@1' === Sdc_Schema::version_string( 'faq' ), Sdc_Schema::version_string( 'faq' ) );
 $check( 'hero führt hero@1', 'hero@1' === Sdc_Schema::version_string( 'hero' ), Sdc_Schema::version_string( 'hero' ) );
 
-$faq_json = json_decode( (string) file_get_contents( Sdc_Schema::dir() . 'group_sdc_component_faq.json' ), true );
+$faq_json = json_decode( (string) file_get_contents( Sdc_Schema::dir() . 'faq/definition.json' ), true );
 $check( 'FAQ-Schemadatei unverändert lesbar', is_array( $faq_json ) && 'group_sdc_component_faq' === ( $faq_json['key'] ?? '' ) );
 $check( 'FAQ-Schema hat weiterhin 2 Felder', is_array( $faq_json ) && 2 === count( $faq_json['fields'] ?? array() ), is_array( $faq_json ) ? count( $faq_json['fields'] ?? array() ) . '' : 'unlesbar' );
 

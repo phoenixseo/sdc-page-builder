@@ -131,3 +131,32 @@ function sdc_pb_json_load_path( $paths ) {
 	return $paths;
 }
 add_filter( 'acf/json/load_paths', 'sdc_pb_json_load_path' );
+
+/**
+ * Write a component's field group back to the file that defines it.
+ *
+ * @param string[] $paths Paths the host proposed.
+ * @param array    $post  Field group being saved.
+ * @return string[]
+ */
+function sdc_pb_json_save_paths( $paths, $post ) {
+	return Sdc_Schema::save_paths( (array) $paths, (array) $post );
+}
+add_filter( 'acf/json/save_paths', 'sdc_pb_json_save_paths', 10, 2 );
+
+/**
+ * Keep a component's file name when the host writes it back.
+ *
+ * ACF names JSON files after the group key, so saving `definition.json` from
+ * the admin would rename it. A component that came from a file keeps that
+ * file's name.
+ *
+ * @param string $filename  Name the host proposed.
+ * @param array  $post      Field group being saved.
+ * @param string $load_path File it was loaded from, if any.
+ * @return string
+ */
+function sdc_pb_json_save_file_name( $filename, $post, $load_path ) {
+	return Sdc_Schema::save_file_name( $filename, (array) $post, (string) $load_path );
+}
+add_filter( 'acf/json/save_file_name', 'sdc_pb_json_save_file_name', 10, 3 );

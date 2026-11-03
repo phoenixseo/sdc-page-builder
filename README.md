@@ -70,7 +70,7 @@ Der Begriff SDC ist Drupals Name für diese Disziplin, nicht Frosts. Die Idee da
 | Drupal SDC | SDC Page Builder |
 |---|---|
 | `components/<name>/` | `sdc-components/<name>/` |
-| `<name>.component.yml` — Props und Slots | `group_sdc_component_<name>.json` — ACF-Feldgruppe, Felder sind die Props |
+| `<name>.component.yml` — Props und Slots | `definition.json` — ACF-Feldgruppe, Felder sind die Props |
 | `<name>.twig` | `render.php` |
 | `<name>.css`, `<name>.js`, automatisch geladen | nicht automatisch — das Theme lädt seine Assets wie gewohnt |
 | Props kommen beim Rendern als Argumente | `$data` im Template, die gespeicherten Werte |
@@ -88,11 +88,11 @@ Zwei Dateien in einem Ordner, mehr braucht es nicht.
 
 ```
 wp-content/themes/<dein-theme>/sdc-components/teaser/
-├── group_sdc_component_teaser.json
+├── definition.json
 └── render.php
 ```
 
-**1. Die Felder** — `group_sdc_component_teaser.json`:
+**1. Die Felder** — `definition.json`:
 
 ```json
 {
@@ -119,7 +119,7 @@ wp-content/themes/<dein-theme>/sdc-components/teaser/
 }
 ```
 
-Drei Dinge sind daran wichtig: Der Key beginnt mit `group_sdc_component_`, der Rest ist der Typ (`teaser`). Jedes Feld hat einen eigenen Key und einen `name`, unter dem der Wert im Dokument landet. Und die Location-Regel `sdc_component == 1` hält die Gruppe von den normalen Metaboxen fern.
+Drei Dinge sind daran wichtig: Der Key im JSON beginnt mit `group_sdc_component_`, der Rest ist der Typ (`teaser`). Der Dateiname sagt nichts über den Typ — er ist in jedem Komponenten-Ordner `definition.json`, weil der Key ihn bestimmt. Jedes Feld hat einen eigenen Key und einen `name`, unter dem der Wert im Dokument landet. Und die Location-Regel `sdc_component == 1` hält die Gruppe von den normalen Metaboxen fern.
 
 **2. Das Markup** — `render.php`:
 
@@ -158,7 +158,7 @@ plugin/
 │   ├── class-sdc-store.php           _sdc_data: ein Key, ein Write, Revisionen
 │   ├── class-sdc-schema.php          Komponenten = Feldgruppen mit group_sdc_component_*
 │   └── class-sdc-rest.php            sdc-pb/v1/pages/{id}, sdc-pb/v1/components
-├── schemas/                          mitgelieferte Beispiel-Komponenten (hero, faq)
+├── schemas/                          mitgelieferte Beispiel-Komponenten (hero/, faq/)
 └── tests/m1-verify.php               20 Prüfungen, end-to-end
 ```
 
@@ -184,8 +184,8 @@ Ein Komponententyp ist ein Verzeichnis — JSON für die Felder, optional `rende
 ```
 wp-content/themes/<dein-theme>/sdc-components/
 └── hero/
-    ├── group_sdc_component_hero.json    Feldgruppe (Pflicht)
-    └── render.php                       Markup (optional)
+    ├── definition.json    Feldgruppe (Pflicht)
+    └── render.php         Markup (optional)
 ```
 
 Gesucht wird in dieser Reihenfolge, der erste Treffer gewinnt:
@@ -240,7 +240,9 @@ Der Filter läuft **nach** dem Template und hat das letzte Wort; ein leerer Rüc
 
 ### Ein Verzeichnis pro Komponente — warum
 
-ACF liest Local JSON nur eine Ebene tief (`scan_files()` überspringt Unterverzeichnisse). Das Plugin meldet deshalb jedes Unterverzeichnis von `sdc-components/` einzeln als Ladepfad an — dadurch funktioniert „ein Ordner pro Komponente" mit unverändertem ACF-Loader. Eine flache Ablage (`sdc-components/hero.json`) geht ebenfalls.
+ACF liest Local JSON nur eine Ebene tief (`scan_files()` überspringt Unterverzeichnisse). Das Plugin meldet deshalb jedes Unterverzeichnis von `sdc-components/` einzeln als Ladepfad an — dadurch funktioniert „ein Ordner pro Komponente" mit unverändertem ACF-Loader. Weil jede Komponente ihren Ordner für sich hat, heißt die Definitionsdatei überall gleich: `definition.json`. Der Name sagt nichts über den Typ; den bestimmt der Gruppen-Key im JSON.
+
+Gespeichert wird aus dem Admin in den Ordner der Komponente zurück, nicht nach `acf-json/` — zwei Dateien mit demselben Key wären zwei Definitionen derselben Komponente.
 
 ## Voraussetzungen
 

@@ -14,7 +14,7 @@ Build pages from reusable components that are defined as field groups and stored
 
 SDC Page Builder turns a page into a list of components. A component is a field group — heading, rich text, repeater, link, image — and the whole page is stored in one JSON document with a format version and a revision history.
 
-The point is that a new component type is a *JSON file*, not a new PHP class. Drop `group_sdc_component_<type>.json` into `schemas/` and the editor, the save route and the frontend output all handle it, because none of them know about specific types.
+The point is that a new component type is a *directory*, not a new PHP class. Drop `sdc-components/card/` with a `definition.json` in it and the editor, the save route and the frontend output all handle it, because none of them know about specific types. The file name says nothing about the type — the group key inside it does.
 
 = Who this is for =
 
@@ -37,7 +37,7 @@ Agencies and developers who build the same page patterns repeatedly (hero, FAQ, 
 * **Escaped output** — stored values are never treated as HTML; the editor's data attributes do not reach the frontend.
 * **Permission-aware REST routes** — every route checks the capability to edit that specific page.
 * **i18n-ready** — all strings use the text domain `sdc-page-builder`; a POT file ships in `languages/`.
-* **Your components live in your theme** — drop a JSON field group (and optionally a `render.php`) into your theme; plugin updates never touch them.
+* **Your components live in your theme** — drop a folder with a JSON field group (and optionally a `render.php`) into your theme; plugin updates never touch them.
 
 = Where do I put my own components? =
 
@@ -45,13 +45,13 @@ In your theme, one directory per component:
 
 ```
 wp-content/themes/your-theme/sdc-components/hero/
-    group_sdc_component_hero.json    field group (required)
+    definition.json                  field group (required)
     render.php                       markup (optional)
 ```
 
 The plugin also reads the parent theme and `wp-content/sdc-components/`, so components survive a theme switch when they live in `wp-content`. The `sdc_pb_component_dirs` filter adds other locations.
 
-Do not add components to the plugin's own `schemas/` directory: it ships the `hero` and `faq` examples and is replaced on every update.
+Do not add components to the plugin's own `schemas/` directory: it ships the `hero` and `faq` examples and is replaced on every update. It follows the same layout — `schemas/hero/definition.json`.
 
 = What are single directory components? =
 
