@@ -1507,7 +1507,17 @@ class Sdc_Admin {
 		$pages  = array();
 
 		foreach ( (array) $rows as $row ) {
-			$document = json_decode( (string) $row->meta_value, true );
+			/*
+			 * Stored documents are PHP arrays (one meta row, serialized by
+			 * update_post_meta); older ones may be a JSON string. Only
+			 * json_decode would find neither and report every component as
+			 * unused, which would silently disable the in-use guard below.
+			 */
+			$document = maybe_unserialize( $row->meta_value );
+
+			if ( is_string( $document ) ) {
+				$document = json_decode( $document, true );
+			}
 
 			if ( ! is_array( $document ) || empty( $document['components'] ) ) {
 				continue;

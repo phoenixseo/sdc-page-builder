@@ -541,6 +541,48 @@ class AdminTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * A component that stands on a page is counted, and refusing to delete
+	 * it without the checkbox comes from that count.
+	 *
+	 * The document is stored the way Sdc_Store stores it — a PHP array in
+	 * one meta row. A counter that only understood JSON reported 0 and the
+	 * in-use guard never fired.
+	 */
+	public function test_instance_counts_reads_stored_documents() {
+		$type    = $this->fresh_type( 'callout' );
+		$post_id = self::factory()->post->create( array( 'post_type' => 'page' ) );
+
+		update_post_meta(
+			$post_id,
+			Sdc_Store::META_KEY,
+			array(
+				'v'          => 1,
+				'components' => array(
+					array(
+						'_id'    => 'c_one',
+						'type'   => $type,
+						'schema' => '',
+						'data'   => array(),
+					),
+					array(
+						'_id'    => 'c_two',
+						'type'   => $type,
+						'schema' => '',
+						'data'   => array(),
+					),
+				),
+			)
+		);
+
+		delete_transient( Sdc_Admin::INSTANCE_TRANSIENT );
+
+		$counts = $this->invoke( 'instance_counts' );
+
+		$this->assertSame( 1, $counts[ $type ]['pages'] );
+		$this->assertSame( 2, $counts[ $type ]['components'] );
+	}
+
+	/**
 	 * A component without a label is refused.
 	 */
 	public function test_create_requires_a_label() {
