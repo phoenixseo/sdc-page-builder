@@ -493,6 +493,54 @@ class AdminTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * A leftover folder from a write that died between mkdir and the file
+	 * does not block the next attempt.
+	 *
+	 * Only a folder that already holds a definition is a duplicate; refusing
+	 * on any folder would leave the type unusable with no way out but FTP.
+	 */
+	public function test_create_fills_a_leftover_folder() {
+		$type = $this->fresh_type( 'callout' );
+
+		$this->assertTrue( wp_mkdir_p( $this->dir . '/' . $type ) );
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '',
+		);
+
+		$this->assertTrue( $this->invoke( 'create' ) );
+		$this->assertFileExists( $this->dir . '/' . $type . '/definition.json' );
+	}
+
+	/**
+	 * A failed write never takes an existing `render.php` down with it.
+	 *
+	 * The folder is only removed when the failed attempt created it, and
+	 * even then `rmdir` leaves anything inside alone.
+	 */
+	public function test_failed_write_cleanup_spares_an_existing_folder() {
+		$type   = $this->fresh_type( 'callout' );
+		$folder = $this->dir . '/' . $type;
+
+		$this->assertTrue( wp_mkdir_p( $folder ) );
+		$this->assertTrue( (bool) file_put_contents( $folder . '/render.php', '<?php' ) );
+
+		$this->invoke( 'discard_folder', $folder, false );
+
+		$this->assertDirectoryExists( $folder );
+		$this->assertFileExists( $folder . '/render.php' );
+
+		$empty = $this->dir . '/' . $this->fresh_type( 'empty' );
+
+		$this->assertTrue( wp_mkdir_p( $empty ) );
+		$this->invoke( 'discard_folder', $empty, false );
+
+		$this->assertDirectoryDoesNotExist( $empty );
+	}
+
+	/**
 	 * A component without a label is refused.
 	 */
 	public function test_create_requires_a_label() {
@@ -608,6 +656,9 @@ class AdminTest extends Sdc_TestCase {
 
 		$this->assertFileExists( $this->dir . '/' . $type . '/definition.json' );
 
+		// A write that died before its rename leaves this behind.
+		$this->assertTrue( (bool) file_put_contents( $this->dir . '/' . $type . '/definition.json.tmp', '{' ) );
+
 		$_POST = array( 'sdc_type' => $type );
 
 		$this->assertTrue( $this->invoke( 'delete' ) );
@@ -650,13 +701,14 @@ class AdminTest extends Sdc_TestCase {
 	 * Call a private static method of Sdc_Admin.
 	 *
 	 * @param string $method Method name.
+	 * @param mixed  ...$args Arguments for the method.
 	 * @return mixed
 	 */
-	private function invoke( $method ) {
+	private function invoke( $method, ...$args ) {
 		$reflection = new ReflectionMethod( 'Sdc_Admin', $method );
 		$reflection->setAccessible( true );
 
-		return $reflection->invoke( null );
+		return $reflection->invoke( null, ...$args );
 	}
 
 	/**

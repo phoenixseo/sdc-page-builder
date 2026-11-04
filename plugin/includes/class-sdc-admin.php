@@ -900,7 +900,9 @@ class Sdc_Admin {
 
 		$folder = dirname( $file );
 
-		foreach ( array( $file, $folder . '/render.php' ) as $target ) {
+		// The .tmp is the leftover of a write that died before its rename;
+		// leaving it behind would keep the folder from ever being removed.
+		foreach ( array( $file . '.tmp', $file, $folder . '/render.php' ) as $target ) {
 			if ( is_file( $target ) && ! unlink( $target ) ) {
 				return new WP_Error(
 					'sdc_unlink_failed',
@@ -1389,9 +1391,15 @@ class Sdc_Admin {
 	 * @return true|WP_Error
 	 */
 	private static function write_definition( $dir, $type, array $definition ) {
-		$folder = trailingslashit( $dir ) . $type;
+		$folder  = trailingslashit( $dir ) . $type;
+		$file    = $folder . '/definition.json';
+		$existed = is_dir( $folder );
 
-		if ( is_dir( $folder ) ) {
+		// A folder without a definition is the leftover of an attempt that
+		// died between mkdir and the rename. Writing into it finishes that
+		// attempt; refusing would block every retry with "already exists"
+		// while the folder stays behind forever.
+		if ( is_file( $file ) ) {
 			return new WP_Error(
 				'sdc_folder_exists',
 				sprintf(
@@ -1402,7 +1410,7 @@ class Sdc_Admin {
 			);
 		}
 
-		if ( ! wp_mkdir_p( $folder ) ) {
+		if ( ! $existed && ! wp_mkdir_p( $folder ) ) {
 			return new WP_Error(
 				'sdc_mkdir_failed',
 				sprintf(
@@ -1416,16 +1424,24 @@ class Sdc_Admin {
 		$json = wp_json_encode( $definition, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 
 		if ( false === $json ) {
-			@rmdir( $folder ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Cleaning up a folder that was just created.
+			self::discard_folder( $folder, $existed );
 
 			return new WP_Error( 'sdc_encode_failed', __( 'Die Definition ließ sich nicht als JSON schreiben.', 'sdc-page-builder' ) );
 		}
 
-		$file = $folder . '/definition.json';
-		$done = file_put_contents( $file, $json . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Writing a component file; WP_Filesystem would ask for credentials in the admin.
+		/*
+		 * Write next to the target and rename. A reader must never see half a
+		 * definition: the loader would read a truncated file, fail to decode
+		 * it and drop the component, so a crash mid-write would silently cost
+		 * the component instead of leaving it untouched. The rename is atomic
+		 * within one filesystem.
+		 */
+		$tmp  = $file . '.tmp';
+		$done = file_put_contents( $tmp, $json . "\n" ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Writing a component file; WP_Filesystem would ask for credentials in the admin.
 
-		if ( false === $done ) {
-			@rmdir( $folder ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Cleaning up a folder that was just created.
+		if ( false === $done || ! @rename( $tmp, $file ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- Same-directory rename; a failure is reported on the next lines.
+			@unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing the temporary file of a failed write.
+			self::discard_folder( $folder, $existed );
 
 			return new WP_Error(
 				'sdc_write_failed',
@@ -1441,6 +1457,24 @@ class Sdc_Admin {
 		delete_transient( self::INSTANCE_TRANSIENT );
 
 		return true;
+	}
+
+	/**
+	 * Remove a component folder a failed write created.
+	 *
+	 * A folder that was already there is left alone: it may hold a
+	 * `render.php` the failure has nothing to do with.
+	 *
+	 * @param string $folder  Absolute path.
+	 * @param bool   $existed Whether the folder was there before the write.
+	 */
+	private static function discard_folder( $folder, $existed ) {
+		if ( $existed || ! is_dir( $folder ) ) {
+			return;
+		}
+
+		// Only removes the directory when the failed write left nothing in it.
+		@rmdir( $folder ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- A folder that is not empty is not an error.
 	}
 
 	/**
