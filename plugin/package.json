@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "description": "Editor-Tests fuer den SDC Page Builder (jsdom). Keine Laufzeit-Abhaengigkeit.",
+  "engines": {
+    "node": ">=22.15"
+  },
   "scripts": {
     "test": "node tests/editor-test.js && node tests/universality-editor-test.js"
   },
