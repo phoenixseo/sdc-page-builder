@@ -57,6 +57,7 @@ require_once SDC_PB_DIR . 'includes/class-sdc-document.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-rest.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-renderer.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-editor.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-admin.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-frontend.php';
 
 /**
@@ -94,6 +95,7 @@ function sdc_pb_boot() {
 
 	if ( is_admin() ) {
 		Sdc_Editor::init();
+		Sdc_Admin::init();
 	}
 }
 add_action( 'plugins_loaded', 'sdc_pb_boot' );

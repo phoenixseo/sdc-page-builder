@@ -1,0 +1,726 @@
+<?php
+/**
+ * The admin screen's logic: validation and the files it writes.
+ *
+ * @package SdcPageBuilder
+ */
+
+/**
+ * Everything the component manager decides before it touches the disk, plus
+ * the disk work itself — redirected into a temporary directory so the suite
+ * never writes into `wp-content/` or the plugin's own `schemas/`.
+ */
+class AdminTest extends Sdc_TestCase {
+
+	/**
+	 * Temporary write directory for the current test.
+	 *
+	 * @var string
+	 */
+	private $dir = '';
+
+	/**
+	 * A scratch root, removed in tear_down().
+	 *
+	 * @var string
+	 */
+	private $root = '';
+
+	/**
+	 * Redirect writes into a scratch directory and start from a clean cache.
+	 */
+	public function set_up() {
+		parent::set_up();
+
+		$this->root = untrailingslashit( get_temp_dir() ) . '/sdc-admin-' . wp_generate_password( 8, false );
+		$this->dir  = $this->root . '/' . Sdc_Schema::USER_DIR;
+
+		$this->assertTrue( wp_mkdir_p( $this->dir ) );
+
+		$dir = $this->dir;
+
+		add_filter(
+			'sdc_pb_write_dir',
+			static function () use ( $dir ) {
+				return $dir;
+			}
+		);
+		add_filter(
+			'sdc_pb_component_dirs',
+			static function () use ( $dir ) {
+				return array( $dir );
+			}
+		);
+
+		$_POST = array();
+
+		$this->reload_host();
+	}
+
+	/**
+	 * Drop the filters, the scratch directory and any posted state.
+	 */
+	public function tear_down() {
+		remove_all_filters( 'sdc_pb_write_dir' );
+		remove_all_filters( 'sdc_pb_component_dirs' );
+
+		delete_transient( Sdc_Admin::INSTANCE_TRANSIENT );
+		$_POST = array();
+
+		$this->remove_tree( $this->root );
+
+		$this->reload_host();
+
+		parent::tear_down();
+	}
+
+	// Type validation: what a component type may look like.
+
+	/**
+	 * A type that would escape the component directory is refused.
+	 *
+	 * @dataProvider bad_types
+	 *
+	 * @param string $type Submitted type.
+	 */
+	public function test_validate_type_rejects_bad_types( $type ) {
+		$result = Sdc_Admin::validate_type( $type );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_bad_type', $result->get_error_code() );
+	}
+
+	/**
+	 * Types that would become a path or a broken field key.
+	 *
+	 * @return array[]
+	 */
+	public function bad_types() {
+		return array(
+			'uppercase'    => array( 'Hero' ),
+			'parent path'  => array( '../x' ),
+			'slash'        => array( 'a/b' ),
+			'space'        => array( 'hero 2' ),
+			'leading dash' => array( '-hero' ),
+			'too long'     => array( str_repeat( 'a', 41 ) ),
+		);
+	}
+
+	/**
+	 * An empty type is its own error, not a format error.
+	 */
+	public function test_validate_type_rejects_empty() {
+		$result = Sdc_Admin::validate_type( '' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_no_type', $result->get_error_code() );
+	}
+
+	/**
+	 * Valid types come back unchanged.
+	 *
+	 * @dataProvider good_types
+	 *
+	 * @param string $type Valid type.
+	 */
+	public function test_validate_type_keeps_valid_types( $type ) {
+		$this->assertSame( $type, Sdc_Admin::validate_type( $type ) );
+	}
+
+	/**
+	 * The shapes the screen promises to accept.
+	 *
+	 * @return array[]
+	 */
+	public function good_types() {
+		return array(
+			'simple'     => array( 'hero' ),
+			'dash'       => array( 'hero-2' ),
+			'underscore' => array( 'hero_2' ),
+			'digit'      => array( 'h2' ),
+			'max'        => array( str_repeat( 'a', 40 ) ),
+		);
+	}
+
+	// Field parsing: pasted JSON becomes field definitions.
+
+	/**
+	 * No fields is a valid, empty component.
+	 */
+	public function test_parse_fields_accepts_empty_input() {
+		$this->assertSame( array(), Sdc_Admin::parse_fields( '', 'teaser' ) );
+		$this->assertSame( array(), Sdc_Admin::parse_fields( "  \n ", 'teaser' ) );
+	}
+
+	/**
+	 * Broken JSON is reported as such.
+	 */
+	public function test_parse_fields_rejects_broken_json() {
+		$result = Sdc_Admin::parse_fields( '[{"name":"head",', 'teaser' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_json', $result->get_error_code() );
+	}
+
+	/**
+	 * A JSON object is not a field list.
+	 */
+	public function test_parse_fields_rejects_object_instead_of_list() {
+		$result = Sdc_Admin::parse_fields( '{"name":"head","type":"text"}', 'teaser' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_shape', $result->get_error_code() );
+	}
+
+	/**
+	 * Every field needs a name.
+	 */
+	public function test_parse_fields_rejects_field_without_name() {
+		$result = Sdc_Admin::parse_fields( '[{"type":"text"}]', 'teaser' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_name', $result->get_error_code() );
+	}
+
+	/**
+	 * Two fields on one level must not share a name.
+	 */
+	public function test_parse_fields_rejects_duplicate_names() {
+		$result = Sdc_Admin::parse_fields(
+			'[{"name":"head","type":"text"},{"name":"head","type":"textarea"}]',
+			'teaser'
+		);
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_duplicate', $result->get_error_code() );
+	}
+
+	/**
+	 * The same name on different levels is fine.
+	 */
+	public function test_parse_fields_allows_same_sub_name_on_another_level() {
+		$fields = Sdc_Admin::parse_fields(
+			'[{"name":"head","type":"text"},{"name":"list","type":"group","sub_fields":[{"name":"head","type":"text"}]}]',
+			'teaser'
+		);
+
+		$this->assertIsArray( $fields );
+		$this->assertSame( 'field_sdc_teaser_head', $fields[1]['sub_fields'][0]['key'] );
+	}
+
+	/**
+	 * Every field needs a type.
+	 */
+	public function test_parse_fields_rejects_field_without_type() {
+		$result = Sdc_Admin::parse_fields( '[{"name":"head"}]', 'teaser' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_type', $result->get_error_code() );
+	}
+
+	/**
+	 * A type the host does not know is refused — asked of the host, not of a
+	 * hard-coded list, so the test holds on ACF Free and SCF alike.
+	 */
+	public function test_parse_fields_rejects_unknown_field_type() {
+		if ( ! function_exists( 'acf_get_field_type' ) ) {
+			$this->fail( 'The host field API is missing; the suite must run with ACF or SCF.' );
+		}
+
+		$this->assertEmpty( acf_get_field_type( 'sdc_no_such_type' ) );
+
+		$result = Sdc_Admin::parse_fields( '[{"name":"head","type":"sdc_no_such_type"}]', 'teaser' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_type', $result->get_error_code() );
+	}
+
+	/**
+	 * A valid field is normalized: prefixed key, label fallback, whitelist.
+	 */
+	public function test_parse_fields_normalizes_fields() {
+		$fields = Sdc_Admin::parse_fields(
+			wp_json_encode(
+				array(
+					array(
+						'name'     => 'head',
+						'type'     => 'text',
+						'required' => 1,
+						'rows'     => 3,
+						'choices'  => array( 'a' => 'A' ),
+						'bogus'    => 'drop me',
+						'key'      => 'field_someone_else',
+					),
+				)
+			),
+			'teaser'
+		);
+
+		$this->assertIsArray( $fields );
+		$this->assertCount( 1, $fields );
+
+		$field = $fields[0];
+
+		$this->assertSame( 'field_sdc_teaser_head', $field['key'] );
+		$this->assertSame( 'head', $field['name'] );
+		$this->assertSame( 'text', $field['type'] );
+		$this->assertSame( 'head', $field['label'], 'Ohne Label fällt es auf den Namen zurück.' );
+		$this->assertSame( 1, $field['required'] );
+		$this->assertSame( 3, $field['rows'] );
+		$this->assertSame( array( 'a' => 'A' ), $field['choices'] );
+		$this->assertArrayNotHasKey( 'bogus', $field );
+	}
+
+	/**
+	 * A given label wins over the fallback.
+	 */
+	public function test_parse_fields_keeps_given_label() {
+		$fields = Sdc_Admin::parse_fields( '[{"name":"head","type":"text","label":"Überschrift"}]', 'teaser' );
+
+		$this->assertSame( 'Überschrift', $fields[0]['label'] );
+	}
+
+	/**
+	 * Sub fields are validated and rekeyed like top level fields.
+	 */
+	public function test_parse_fields_rekeys_sub_fields() {
+		$fields = Sdc_Admin::parse_fields(
+			'[{"name":"list","type":"group","sub_fields":[{"name":"item","type":"text","bogus":1}]}]',
+			'teaser'
+		);
+
+		$this->assertIsArray( $fields );
+		$this->assertSame( 'field_sdc_teaser_list', $fields[0]['key'] );
+		$this->assertSame( 'field_sdc_teaser_item', $fields[0]['sub_fields'][0]['key'] );
+		$this->assertArrayNotHasKey( 'bogus', $fields[0]['sub_fields'][0] );
+	}
+
+	/**
+	 * Names are reduced to what the host accepts: a–z, 0–9, underscore.
+	 */
+	public function test_parse_fields_cleans_names() {
+		$fields = Sdc_Admin::parse_fields( '[{"name":"Head Line 2","type":"text"}]', 'teaser' );
+
+		$this->assertIsArray( $fields );
+		$this->assertSame( 'headline2', $fields[0]['name'] );
+		$this->assertSame( 'field_sdc_teaser_headline2', $fields[0]['key'] );
+	}
+
+	// Imported definition: an uploaded file becomes a component.
+
+	/**
+	 * An import that is not JSON is refused.
+	 */
+	public function test_parse_definition_rejects_broken_json() {
+		$result = Sdc_Admin::parse_definition( 'not json' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_import_json', $result->get_error_code() );
+	}
+
+	/**
+	 * The key has to carry the component prefix.
+	 */
+	public function test_parse_definition_rejects_foreign_key() {
+		$result = Sdc_Admin::parse_definition( '{"key":"group_other_thing","title":"X"}' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_import_key', $result->get_error_code() );
+	}
+
+	/**
+	 * A definition without a key is refused.
+	 */
+	public function test_parse_definition_rejects_missing_key() {
+		$result = Sdc_Admin::parse_definition( '{"title":"X"}' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_import_key', $result->get_error_code() );
+	}
+
+	/**
+	 * A definition without a title is refused.
+	 */
+	public function test_parse_definition_rejects_missing_title() {
+		$result = Sdc_Admin::parse_definition( '{"key":"group_sdc_component_teaser","title":"   "}' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_import_title', $result->get_error_code() );
+	}
+
+	/**
+	 * The type inside the key is validated like a posted type.
+	 */
+	public function test_parse_definition_rejects_invalid_type_in_key() {
+		$result = Sdc_Admin::parse_definition( '{"key":"group_sdc_component_Teaser","title":"X"}' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_bad_type', $result->get_error_code() );
+	}
+
+	/**
+	 * A valid definition is rebuilt, not trusted: type derived from the key,
+	 * keys re-prefixed, the builder's location rule installed.
+	 */
+	public function test_parse_definition_rebuilds_a_valid_definition() {
+		$raw = wp_json_encode(
+			array(
+				'key'         => 'group_sdc_component_teaser',
+				'title'       => '  Teaser  ',
+				'sdc_version' => 0,
+				'fields'      => array(
+					array(
+						'key'  => 'field_foreign',
+						'name' => 'head',
+						'type' => 'text',
+					),
+				),
+			)
+		);
+
+		$parsed = Sdc_Admin::parse_definition( $raw );
+
+		$this->assertIsArray( $parsed );
+		$this->assertSame( 'teaser', $parsed['type'] );
+
+		$definition = $parsed['definition'];
+
+		$this->assertSame( 'group_sdc_component_teaser', $definition['key'] );
+		$this->assertSame( 'Teaser', $definition['title'] );
+		$this->assertSame( 1, $definition['sdc_version'] );
+		$this->assertTrue( $definition['active'] );
+		$this->assertSame( 'field_sdc_teaser_head', $definition['fields'][0]['key'] );
+		$this->assertSame(
+			array(
+				array(
+					array(
+						'param'    => 'sdc_component',
+						'operator' => '==',
+						'value'    => '1',
+					),
+				),
+			),
+			$definition['location']
+		);
+	}
+
+	// Files on disk: create, duplicate and delete.
+
+	/**
+	 * Creating a component writes `<type>/definition.json` with valid JSON.
+	 */
+	public function test_create_writes_a_definition_file() {
+		$type = $this->fresh_type( 'callout' );
+
+		$_POST = array(
+			'sdc_type'        => $type,
+			'sdc_label'       => 'Callout',
+			'sdc_description' => 'Ein Hinweis.',
+			'sdc_icon'        => 'info',
+			'sdc_fields'      => '[{"name":"text","type":"text","required":1}]',
+		);
+
+		$this->assertTrue( $this->invoke( 'create' ) );
+
+		$file = $this->dir . '/' . $type . '/definition.json';
+
+		$this->assertFileExists( $file );
+
+		$definition = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertIsArray( $definition, 'Die geschriebene Datei ist gültiges JSON.' );
+		$this->assertSame( 'group_sdc_component_' . $type, $definition['key'] );
+		$this->assertSame( 'Callout', $definition['title'] );
+		$this->assertSame( 'Ein Hinweis.', $definition['sdc_description'] );
+		$this->assertSame( 'info', $definition['sdc_icon'] );
+		$this->assertSame( 'field_sdc_' . $type . '_text', $definition['fields'][0]['key'] );
+		$this->assertSame( '1', (string) $definition['location'][0][0]['value'] );
+	}
+
+	/**
+	 * The plugin's own `schemas/` and `wp-content/` stay untouched.
+	 */
+	public function test_create_writes_only_into_the_filtered_directory() {
+		$type = $this->fresh_type( 'callout' );
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '',
+		);
+
+		$this->assertTrue( $this->invoke( 'create' ) );
+
+		$this->assertDirectoryDoesNotExist( WP_CONTENT_DIR . '/' . Sdc_Schema::USER_DIR . '/' . $type );
+		$this->assertFileDoesNotExist( Sdc_Schema::dir() . $type . '/definition.json' );
+	}
+
+	/**
+	 * A type that already exists is refused — the file is not overwritten.
+	 */
+	public function test_create_refuses_an_existing_type() {
+		$type = $this->fresh_type( 'callout' );
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '',
+		);
+
+		$this->assertTrue( $this->invoke( 'create' ) );
+		$this->reload();
+
+		$result = $this->invoke( 'create' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_type_exists', $result->get_error_code() );
+	}
+
+	/**
+	 * A shipped component cannot be duplicated onto its own type.
+	 */
+	public function test_create_refuses_a_shipped_type() {
+		$_POST = array(
+			'sdc_type'   => 'hero',
+			'sdc_label'  => 'Hero',
+			'sdc_fields' => '',
+		);
+
+		$result = $this->invoke( 'create' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_type_exists', $result->get_error_code() );
+	}
+
+	/**
+	 * A component without a label is refused.
+	 */
+	public function test_create_requires_a_label() {
+		$type = $this->fresh_type( 'callout' );
+
+		$_POST = array(
+			'sdc_type'  => $type,
+			'sdc_label' => '   ',
+		);
+
+		$result = $this->invoke( 'create' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_no_label', $result->get_error_code() );
+		$this->assertDirectoryDoesNotExist( $this->dir . '/' . $type );
+	}
+
+	/**
+	 * Duplicating copies the field structure under fresh keys.
+	 */
+	public function test_duplicate_copies_a_component_with_new_keys() {
+		$type = $this->fresh_type( 'hero-copy' );
+
+		$_POST = array(
+			'sdc_source' => 'hero',
+			'sdc_type'   => $type,
+		);
+
+		$this->assertTrue( $this->invoke( 'duplicate' ) );
+
+		$file = $this->dir . '/' . $type . '/definition.json';
+
+		$this->assertFileExists( $file );
+
+		$definition = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertIsArray( $definition );
+		$this->assertSame( 'group_sdc_component_' . $type, $definition['key'] );
+		$this->assertStringContainsString( '(Kopie)', $definition['title'] );
+		$this->assertNotEmpty( $definition['fields'] );
+
+		$source_fields = Sdc_Schema::fields( 'hero' );
+		$this->assertCount( count( $source_fields ), $definition['fields'] );
+
+		foreach ( $definition['fields'] as $index => $field ) {
+			$this->assertSame( 'field_sdc_' . $type . '_' . $field['name'], $field['key'] );
+			$this->assertNotSame( $source_fields[ $index ]['key'], $field['key'] );
+		}
+	}
+
+	/**
+	 * Duplicating onto a type that already exists is refused.
+	 */
+	public function test_duplicate_refuses_an_existing_type() {
+		$type = $this->fresh_type( 'hero-copy' );
+
+		$_POST = array(
+			'sdc_source' => 'hero',
+			'sdc_type'   => $type,
+		);
+
+		$this->assertTrue( $this->invoke( 'duplicate' ) );
+		$this->reload();
+
+		$result = $this->invoke( 'duplicate' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_type_exists', $result->get_error_code() );
+	}
+
+	/**
+	 * Duplicating an unknown source is refused.
+	 */
+	public function test_duplicate_refuses_an_unknown_source() {
+		$_POST = array(
+			'sdc_source' => 'nope',
+			'sdc_type'   => $this->fresh_type( 'nope-copy' ),
+		);
+
+		$result = $this->invoke( 'duplicate' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_unknown_source', $result->get_error_code() );
+	}
+
+	/**
+	 * A component shipped with the plugin is not the screen's to delete.
+	 */
+	public function test_delete_refuses_a_component_outside_the_write_dir() {
+		$_POST = array( 'sdc_type' => 'hero' );
+
+		$result = $this->invoke( 'delete' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_not_owned', $result->get_error_code() );
+		$this->assertFileExists( Sdc_Schema::dir() . 'hero/definition.json' );
+	}
+
+	/**
+	 * Deleting an own component removes the folder and its definition.
+	 */
+	public function test_delete_removes_an_own_component() {
+		$type = $this->fresh_type( 'callout' );
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '',
+		);
+
+		$this->assertTrue( $this->invoke( 'create' ) );
+		$this->reload();
+
+		$this->assertFileExists( $this->dir . '/' . $type . '/definition.json' );
+
+		$_POST = array( 'sdc_type' => $type );
+
+		$this->assertTrue( $this->invoke( 'delete' ) );
+
+		$this->assertFileDoesNotExist( $this->dir . '/' . $type . '/definition.json' );
+		$this->assertDirectoryDoesNotExist( $this->dir . '/' . $type );
+	}
+
+	/**
+	 * An unknown component cannot be deleted.
+	 */
+	public function test_delete_refuses_an_unknown_component() {
+		$_POST = array( 'sdc_type' => 'nope' );
+
+		$result = $this->invoke( 'delete' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_unknown_component', $result->get_error_code() );
+	}
+
+	// Helpers.
+
+	/**
+	 * A component type this test owns alone.
+	 *
+	 * The host keeps loaded field groups for the whole PHP process and does
+	 * not reliably forget a group whose file was just deleted, so two tests
+	 * must never share a type: the second one would see the first one's
+	 * leftover and be refused as a duplicate. Unique types per test keep the
+	 * suite independent of that cache without weakening an assertion.
+	 *
+	 * @param string $base Readable prefix.
+	 * @return string Valid component type.
+	 */
+	private function fresh_type( $base ) {
+		return $base . '-' . strtolower( wp_generate_password( 6, false ) );
+	}
+
+	/**
+	 * Call a private static method of Sdc_Admin.
+	 *
+	 * @param string $method Method name.
+	 * @return mixed
+	 */
+	private function invoke( $method ) {
+		$reflection = new ReflectionMethod( 'Sdc_Admin', $method );
+		$reflection->setAccessible( true );
+
+		return $reflection->invoke( null );
+	}
+
+	/**
+	 * Make the host read the component files again.
+	 *
+	 * ACF/SCF load Local JSON once per request, so a file written by the code
+	 * under test is invisible until the loader runs again. The stores are
+	 * reset first: a group whose file was deleted must not linger.
+	 */
+	private function reload() {
+		$this->reload_host();
+	}
+
+	/**
+	 * Drop the host's cached groups and let it read the files again.
+	 *
+	 * The host cache lives for the whole PHP process, so a group whose file
+	 * this suite just deleted would otherwise leak into the next test.
+	 */
+	private function reload_host() {
+		Sdc_Schema::flush();
+
+		if ( function_exists( 'acf_get_store' ) ) {
+			foreach ( array( 'field-groups', 'fields' ) as $store ) {
+				$instance = acf_get_store( $store );
+				if ( $instance && method_exists( $instance, 'reset' ) ) {
+					$instance->reset();
+				}
+			}
+		}
+
+		// The hook name comes from the host and cannot be renamed.
+		do_action( 'acf/include_fields' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores -- Hook defined by ACF/SCF.
+
+		Sdc_Schema::flush();
+		delete_transient( Sdc_Admin::INSTANCE_TRANSIENT );
+	}
+
+	/**
+	 * Recursively delete a directory.
+	 *
+	 * @param string $path Directory.
+	 */
+	private function remove_tree( $path ) {
+		if ( '' === $path || ! is_dir( $path ) ) {
+			return;
+		}
+
+		$entries = scandir( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_scandir -- Test cleanup.
+
+		foreach ( (array) $entries as $entry ) {
+			if ( '.' === $entry || '..' === $entry ) {
+				continue;
+			}
+
+			$target = $path . '/' . $entry;
+
+			if ( is_dir( $target ) ) {
+				$this->remove_tree( $target );
+			} elseif ( is_file( $target ) ) {
+				unlink( $target ); // phpcs:ignore WordPress.WP.AlternativeFunctions.unlink_unlink -- Test cleanup.
+			}
+		}
+
+		rmdir( $path ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_rmdir -- Test cleanup.
+	}
+}
