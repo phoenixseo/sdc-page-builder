@@ -43,6 +43,22 @@ class Sdc_Admin {
 	const CAPABILITY = 'manage_options';
 
 	/**
+	 * Notice code per task — the past participle the message table uses.
+	 *
+	 * The task name and its success message are two vocabularies
+	 * ("create" / "angelegt"). Mapping them here keeps the redirect simple
+	 * and stops a successful action from landing on a page with no feedback
+	 * at all, which is what an unmapped code silently does.
+	 */
+	const NOTICE_CODES = array(
+		'create'    => 'created',
+		'update'    => 'updated',
+		'duplicate' => 'duplicated',
+		'delete'    => 'deleted',
+		'import'    => 'imported',
+	);
+
+	/**
 	 * Nonce action for every form on the screen.
 	 */
 	const NONCE_ACTION = 'sdc_pb_components';
@@ -227,10 +243,20 @@ class Sdc_Admin {
 		$dir      = self::write_dir();
 		$writable = '' !== $dir && ( is_dir( $dir ) ? is_writable( $dir ) : is_writable( dirname( $dir ) ) );
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Chooses which form to show; no data changes.
+		$edit = isset( $_GET['sdc_edit'] ) ? sanitize_key( wp_unslash( $_GET['sdc_edit'] ) ) : '';
+
 		echo '<div class="wrap">';
 		echo '<h1>' . esc_html__( 'SDC-Komponenten', 'sdc-page-builder' ) . '</h1>';
 
 		self::render_notice();
+
+		// One component open for editing: the catalog would only get in the way.
+		if ( '' !== $edit ) {
+			self::render_edit_form( $edit );
+			echo '</div>';
+			return;
+		}
 
 		if ( ! $writable ) {
 			printf(
@@ -422,16 +448,34 @@ class Sdc_Admin {
 		$type  = $row['type'];
 		$label = $row['label'];
 
-		$export_url = wp_nonce_url(
-			add_query_arg(
+		// Only a component in the write directory can be edited in place;
+		// a theme or plugin component is duplicable, not editable.
+		if ( $row['writable'] ) {
+			$edit_url = add_query_arg(
 				array(
-					'action'   => self::HOOK,
-					'sdc_task' => 'export',
-					'sdc_type' => rawurlencode( $type ),
+					'page'     => self::MENU_SLUG,
+					'sdc_edit' => $type,
 				),
-				admin_url( 'admin-post.php' )
+				admin_url( 'admin.php' )
+			);
+
+			printf(
+				'<a class="button button-small" href="%s">%s</a> ',
+				esc_url( $edit_url ),
+				esc_html__( 'Bearbeiten', 'sdc-page-builder' )
+			);
+		}
+
+		$export_url = add_query_arg(
+			array(
+				'action'   => self::HOOK,
+				'sdc_task' => 'export',
+				'sdc_type' => rawurlencode( $type ),
+				// Same field name handle() verifies — a `_wpnonce` here would
+				// be ignored and exporting would fail like the forms did.
+				self::NONCE_FIELD => wp_create_nonce( self::NONCE_ACTION ),
 			),
-			self::NONCE_ACTION
+			admin_url( 'admin-post.php' )
 		);
 
 		printf(
@@ -551,6 +595,252 @@ class Sdc_Admin {
 	}
 
 	/**
+	 * Form that edits a component this screen owns.
+	 *
+	 * The values come from the raw file, not from the loader: `Sdc_Schema::get()`
+	 * hands back normalized fields (types cast, defaults filled in), and
+	 * writing those back would rewrite the whole file on a save the user never
+	 * asked for. The one exception is a rejected save — then the transient
+	 * carries what was typed, so nothing has to be retyped.
+	 *
+	 * @param string $type Component type.
+	 */
+	private static function render_edit_form( $type ) {
+		$type = self::validate_type( $type );
+
+		if ( is_wp_error( $type ) ) {
+			printf( '<div class="notice notice-error"><p>%s</p></div>', esc_html( $type->get_error_message() ) );
+			return;
+		}
+
+		$component = Sdc_Schema::get( $type );
+
+		if ( null === $component ) {
+			printf(
+				'<div class="notice notice-error"><p>%s</p></div>',
+				esc_html(
+					sprintf(
+						/* translators: %s: component type. */
+						__( 'Die Komponente %s gibt es nicht.', 'sdc-page-builder' ),
+						$type
+					)
+				)
+			);
+			return;
+		}
+
+		$file = Sdc_Schema::file_for_key( (string) $component['key'] );
+
+		if ( '' === $file || ! is_readable( $file ) ) {
+			printf(
+				'<div class="notice notice-error"><p>%s</p></div>',
+				esc_html__( 'Zu dieser Komponente wurde keine lesbare definition.json gefunden.', 'sdc-page-builder' )
+			);
+			return;
+		}
+
+		$raw  = file_get_contents( $file ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Local file inside the component directories.
+		$base = false === $raw ? null : json_decode( (string) $raw, true );
+
+		if ( ! is_array( $base ) ) {
+			printf(
+				'<div class="notice notice-error"><p>%s</p></div>',
+				esc_html(
+					sprintf(
+						/* translators: %s: path relative to the WordPress root. */
+						__( 'Die Datei %s ist nicht lesbar oder enthält kein gültiges JSON.', 'sdc-page-builder' ),
+						self::relative_path( $file )
+					)
+				)
+			);
+			return;
+		}
+
+		$values = array(
+			'label'       => isset( $base['title'] ) ? (string) $base['title'] : $type,
+			'description' => isset( $base['sdc_description'] ) ? (string) $base['sdc_description'] : '',
+			'icon'        => isset( $base['sdc_icon'] ) ? (string) $base['sdc_icon'] : '',
+			'fields'      => self::printable_fields( isset( $base['fields'] ) && is_array( $base['fields'] ) ? $base['fields'] : array() ),
+		);
+
+		$draft = self::take_draft( $type );
+
+		if ( null !== $draft ) {
+			foreach ( array_keys( $values ) as $name ) {
+				if ( isset( $draft[ $name ] ) && is_string( $draft[ $name ] ) ) {
+					$values[ $name ] = $draft[ $name ];
+				}
+			}
+		}
+
+		printf(
+			'<h2>%s</h2>',
+			esc_html(
+				sprintf(
+					/* translators: %s: component label. */
+					__( 'Komponente bearbeiten: %s', 'sdc-page-builder' ),
+					$values['label']
+				)
+			)
+		);
+
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'Gespeichert wird in dieselbe definition.json. Der Typ bleibt unverändert: er steckt im Gruppen-Key und in jedem Feld-Key, an dem die Inhalte der Seiten hängen. Ein anderer Typ entsteht über „Duplizieren".', 'sdc-page-builder' )
+		);
+
+		if ( ! self::in_write_dir( $file ) ) {
+			printf(
+				'<div class="notice notice-error"><p>%s</p></div>',
+				esc_html__( 'Diese Komponente liegt nicht in wp-content/sdc-components/. Theme- und Plugin-Komponenten sind schreibgeschützt, weil der nächste Deploy die Änderung überschreiben würde. Dupliziere sie, um sie hier zu bearbeiten.', 'sdc-page-builder' )
+			);
+			printf( '<p><a class="button" href="%s">%s</a></p>', esc_url( self::catalog_url() ), esc_html__( 'Zurück zur Übersicht', 'sdc-page-builder' ) );
+			return;
+		}
+
+		printf( '<form method="post" action="%s">', esc_url( admin_url( 'admin-post.php' ) ) );
+		self::form_hidden( 'update' );
+		printf( '<input type="hidden" name="sdc_type" value="%s" />', esc_attr( $type ) );
+
+		echo '<table class="form-table" role="presentation">';
+
+		// The type is shown, never posted as an editable value.
+		echo '<tr><th scope="row">' . esc_html__( 'Typ', 'sdc-page-builder' ) . '</th><td>';
+		printf( '<code>%s</code>', esc_html( $type ) );
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'Nicht änderbar. Ein neuer Typ würde neue Feld-Keys erzeugen, und die Inhalte der Seiten hingen danach an Feldern, die es nicht mehr gibt.', 'sdc-page-builder' )
+		);
+		echo '</td></tr>';
+
+		echo '<tr><th scope="row"><label for="sdc_label">' . esc_html__( 'Name', 'sdc-page-builder' ) . '</label></th><td>';
+		printf( '<input type="text" id="sdc_label" name="sdc_label" value="%s" class="regular-text" required />', esc_attr( $values['label'] ) );
+		printf( '<p class="description">%s</p>', esc_html__( 'Erscheint im Komponenten-Picker, z. B. „Zitat" oder „Preistabelle".', 'sdc-page-builder' ) );
+		echo '</td></tr>';
+
+		echo '<tr><th scope="row"><label for="sdc_description">' . esc_html__( 'Beschreibung', 'sdc-page-builder' ) . '</label></th><td>';
+		printf( '<textarea id="sdc_description" name="sdc_description" rows="2" class="large-text">%s</textarea>', esc_textarea( $values['description'] ) );
+		printf( '<p class="description">%s</p>', esc_html__( 'Optional. Steht als Hilfetext in der Kachel des Pickers.', 'sdc-page-builder' ) );
+		echo '</td></tr>';
+
+		echo '<tr><th scope="row"><label for="sdc_icon">' . esc_html__( 'Icon', 'sdc-page-builder' ) . '</label></th><td>';
+		printf( '<input type="text" id="sdc_icon" name="sdc_icon" value="%s" class="regular-text" />', esc_attr( $values['icon'] ) );
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'Optional. Ein Dashicon-Name, z. B. layout, cover-image, format-quote, table.', 'sdc-page-builder' )
+		);
+		echo '</td></tr>';
+
+		echo '<tr><th scope="row"><label for="sdc_fields">' . esc_html__( 'Felder', 'sdc-page-builder' ) . '</label></th><td>';
+		printf( '<textarea id="sdc_fields" name="sdc_fields" rows="16" class="large-text code" spellcheck="false">%s</textarea>', esc_textarea( $values['fields'] ) );
+		echo '<p class="description">' . esc_html__( 'JSON-Liste, ohne die key-Einträge: die Keys werden aus Typ und Name gebildet. Ein unveränderter Name behält seinen Key, und damit die Inhalte der Seiten.', 'sdc-page-builder' ) . '</p>';
+		printf(
+			'<p><label><input type="checkbox" name="sdc_confirm_fields" value="1" /> %s</label></p>',
+			esc_html__( 'Felder entfernen bestätigen', 'sdc-page-builder' )
+		);
+		printf(
+			'<p class="description">%s</p>',
+			esc_html__( 'Nur nötig, wenn ein Feldname aus der Liste verschwindet. Die Inhalte bleiben in den Seiten gespeichert, sind danach aber unsichtbar.', 'sdc-page-builder' )
+		);
+		self::render_fields_help();
+		echo '</td></tr>';
+
+		echo '</table>';
+		submit_button( __( 'Komponente speichern', 'sdc-page-builder' ) );
+		printf( '<p><a href="%s">%s</a></p>', esc_url( self::catalog_url() ), esc_html__( 'Abbrechen', 'sdc-page-builder' ) );
+		echo '</form>';
+	}
+
+	/**
+	 * The field list as it can be shown for editing.
+	 *
+	 * `key` is left out on every level: it is derived from type and name, and
+	 * a key in the textarea would suggest it could be edited — while a changed
+	 * key is exactly what makes the stored content disappear.
+	 *
+	 * @param array[] $fields Field definitions from the file.
+	 * @return string JSON, empty for a component without fields.
+	 */
+	private static function printable_fields( array $fields ) {
+		$stripped = self::strip_keys( $fields );
+
+		if ( empty( $stripped ) ) {
+			return '';
+		}
+
+		$json = wp_json_encode( $stripped, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+
+		return false === $json ? '' : $json;
+	}
+
+	/**
+	 * A field list without its `key` entries, on every nesting level.
+	 *
+	 * @param array[] $fields Field definitions.
+	 * @return array[]
+	 */
+	private static function strip_keys( array $fields ) {
+		$out = array();
+
+		foreach ( $fields as $field ) {
+			if ( ! is_array( $field ) ) {
+				continue;
+			}
+
+			unset( $field['key'] );
+
+			if ( isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ) {
+				$field['sub_fields'] = self::strip_keys( $field['sub_fields'] );
+			}
+
+			$out[] = $field;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Posted values of a rejected save, keyed like the form fields.
+	 *
+	 * Kept in a transient next to the error message: the field list is the one
+	 * thing a user must never have to type twice, and a second state in the
+	 * database would be a cache for a form.
+	 *
+	 * @param string $type Component the form belongs to.
+	 * @return array|null Null when there is no draft for this form.
+	 */
+	private static function take_draft( $type ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Reading the form's own draft token; no data changes.
+		$token = isset( $_GET['sdc_detail'] ) ? sanitize_key( wp_unslash( $_GET['sdc_detail'] ) ) : '';
+
+		if ( '' === $token ) {
+			return null;
+		}
+
+		$key   = 'sdc_pb_draft_' . $token;
+		$draft = get_transient( $key );
+
+		if ( ! is_array( $draft ) ) {
+			return null;
+		}
+
+		if ( ! isset( $draft['type'] ) || (string) $type !== (string) $draft['type'] ) {
+			return null;
+		}
+
+		return $draft;
+	}
+
+	/**
+	 * URL of the catalog list.
+	 *
+	 * @return string
+	 */
+	private static function catalog_url() {
+		return add_query_arg( 'page', self::MENU_SLUG, admin_url( 'admin.php' ) );
+	}
+
+	/**
 	 * Example and available field types, so the paste target is obvious.
 	 */
 	private static function render_fields_help() {
@@ -627,6 +917,7 @@ class Sdc_Admin {
 
 		$messages = array(
 			'created'    => array( 'success', __( 'Komponente angelegt.', 'sdc-page-builder' ) ),
+			'updated'    => array( 'success', __( 'Komponente gespeichert.', 'sdc-page-builder' ) ),
 			'duplicated' => array( 'success', __( 'Komponente dupliziert.', 'sdc-page-builder' ) ),
 			'deleted'    => array( 'success', __( 'Komponente gelöscht.', 'sdc-page-builder' ) ),
 			'imported'   => array( 'success', __( 'Komponente importiert.', 'sdc-page-builder' ) ),
@@ -668,7 +959,11 @@ class Sdc_Admin {
 			wp_die( esc_html__( 'Keine Berechtigung für diese Aktion.', 'sdc-page-builder' ) );
 		}
 
-		check_admin_referer( self::NONCE_ACTION );
+		// The same field the forms write. check_admin_referer() looks for
+		// `_wpnonce` unless it is told otherwise, so naming the field here is
+		// what makes the two ends meet; without it every action died with
+		// "the link you followed has expired".
+		check_admin_referer( self::NONCE_ACTION, self::NONCE_FIELD );
 
 		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified by check_admin_referer() above.
 		$task = isset( $_POST['sdc_task'] ) ? sanitize_key( wp_unslash( $_POST['sdc_task'] ) ) : '';
@@ -687,6 +982,8 @@ class Sdc_Admin {
 
 		if ( 'create' === $task ) {
 			$result = self::create();
+		} elseif ( 'update' === $task ) {
+			$result = self::update();
 		} elseif ( 'duplicate' === $task ) {
 			$result = self::duplicate();
 		} elseif ( 'delete' === $task ) {
@@ -696,10 +993,49 @@ class Sdc_Admin {
 		}
 
 		if ( is_wp_error( $result ) ) {
+			/*
+			 * A rejected edit goes back to the form, not to the catalog: the
+			 * posted field list is the only copy of what the user just typed.
+			 * The draft travels in a transient behind the same one-time token
+			 * as the message, so nothing large has to fit into a URL.
+			 */
+			if ( 'update' === $task ) {
+				$args  = self::edit_args();
+				$draft = empty( $args ) ? array() : self::posted_draft();
+
+				self::redirect( 'error', $result->get_error_message(), $args, $draft );
+			}
+
 			self::redirect( 'error', $result->get_error_message() );
 		}
 
-		self::redirect( $task );
+		self::redirect( isset( self::NOTICE_CODES[ $task ] ) ? self::NOTICE_CODES[ $task ] : 'error' );
+	}
+
+	/**
+	 * Query arg that sends the next request to the edit form of the posted type.
+	 *
+	 * @return array Empty when the posted type is not usable as a form target.
+	 */
+	private static function edit_args() {
+		$type = self::posted( 'sdc_type' );
+
+		return '' === $type ? array() : array( 'sdc_edit' => $type );
+	}
+
+	/**
+	 * What the edit form has to show again after a rejected save.
+	 *
+	 * @return array
+	 */
+	private static function posted_draft() {
+		return array(
+			'type'        => self::posted( 'sdc_type' ),
+			'label'       => self::posted( 'sdc_label' ),
+			'description' => self::posted( 'sdc_description' ),
+			'icon'        => self::posted( 'sdc_icon' ),
+			'fields'      => self::posted_raw( 'sdc_fields' ),
+		);
 	}
 
 	/**
@@ -844,6 +1180,165 @@ class Sdc_Admin {
 		$definition['location']    = self::location();
 
 		return self::write_definition( $dir, $type, $definition );
+	}
+
+	/**
+	 * Write an edit back into the component's own definition file.
+	 *
+	 * The file is the basis, not `definition()`: `menu_order`, `position`,
+	 * `location` and everything else this form does not show belong to the
+	 * component and have to survive a save. Only the four values the form
+	 * edits are replaced.
+	 *
+	 * @return true|WP_Error
+	 */
+	private static function update() {
+		$type = self::validate_type( self::posted( 'sdc_type' ) );
+
+		if ( is_wp_error( $type ) ) {
+			return $type;
+		}
+
+		$component = Sdc_Schema::get( $type );
+
+		if ( null === $component ) {
+			return new WP_Error(
+				'sdc_unknown_type',
+				sprintf(
+					/* translators: %s: component type. */
+					__( 'Die Komponente %s gibt es nicht.', 'sdc-page-builder' ),
+					$type
+				)
+			);
+		}
+
+		$file = Sdc_Schema::file_for_key( (string) $component['key'] );
+
+		if ( '' === $file || ! self::in_write_dir( $file ) ) {
+			return new WP_Error(
+				'sdc_outside_write_dir',
+				__( 'Diese Komponente liegt nicht in wp-content/sdc-components/. Theme- und Plugin-Komponenten sind schreibgeschützt, weil der nächste Deploy die Änderung überschreiben würde. Dupliziere sie, um sie hier zu bearbeiten.', 'sdc-page-builder' )
+			);
+		}
+
+		$raw  = @file_get_contents( $file ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Local file inside the component directories; an unreadable file is reported below.
+		$base = false === $raw ? null : json_decode( (string) $raw, true );
+
+		if ( ! is_array( $base ) ) {
+			return new WP_Error(
+				'sdc_read_failed',
+				sprintf(
+					/* translators: %s: absolute file path. */
+					__( 'Die Datei %s ist nicht lesbar oder enthält kein gültiges JSON. Ohne sie lässt sich die Komponente nicht speichern.', 'sdc-page-builder' ),
+					$file
+				)
+			);
+		}
+
+		$base_fields = isset( $base['fields'] ) && is_array( $base['fields'] ) ? $base['fields'] : array();
+
+		$label = self::posted( 'sdc_label' );
+
+		if ( '' === $label ) {
+			return new WP_Error( 'sdc_no_label', __( 'Die Komponente braucht einen Namen.', 'sdc-page-builder' ) );
+		}
+
+		// The stored field list is passed in so an unchanged name keeps its
+		// stored key instead of getting a derived one.
+		$fields = self::parse_fields( self::posted_raw( 'sdc_fields' ), $type, $base_fields );
+
+		if ( is_wp_error( $fields ) ) {
+			return $fields;
+		}
+
+		$removed = self::removed_names( $base_fields, $fields );
+
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- Verified by check_admin_referer() in handle().
+		$confirm = '1' === self::posted( 'sdc_confirm_fields' );
+
+		/*
+		 * A dropped field name is a silent data loss: the value stays in the
+		 * page document but no longer belongs to a field, so it disappears
+		 * from the editor without anyone deleting it. The save therefore
+		 * stops here until the checkbox says the loss is intended.
+		 */
+		if ( ! empty( $removed ) && ! $confirm ) {
+			return new WP_Error(
+				'sdc_fields_removed',
+				sprintf(
+					/* translators: %s: comma separated list of field labels and names. */
+					__( 'Diese Felder fehlen in der neuen Feldliste: %s. Ihre Inhalte bleiben auf den Seiten gespeichert, sind danach aber unsichtbar. Setze „Felder entfernen bestätigen", wenn das gewollt ist.', 'sdc-page-builder' ),
+					implode( ', ', $removed )
+				)
+			);
+		}
+
+		$definition = $base;
+
+		$definition['title']           = $label;
+		$definition['sdc_description'] = self::posted( 'sdc_description' );
+		$definition['sdc_icon']        = self::posted( 'sdc_icon' );
+		$definition['fields']          = $fields;
+
+		return self::write_definition( self::write_dir(), $type, $definition, true );
+	}
+
+	/**
+	 * Names the stored fields have and a submitted list does not.
+	 *
+	 * Recursive, because a sub field keeps its value under its own name:
+	 * dropping one loses what the editor stored in it. The entries are
+	 * written the way the user sees them in the field list.
+	 *
+	 * @param array[] $base      Stored fields.
+	 * @param array[] $submitted Submitted fields.
+	 * @return string[]
+	 */
+	private static function removed_names( array $base, array $submitted ) {
+		$before  = self::field_names( $base );
+		$after   = self::field_names( $submitted );
+		$removed = array();
+
+		foreach ( $before as $name => $label ) {
+			if ( isset( $after[ $name ] ) ) {
+				continue;
+			}
+
+			$removed[] = $name === $label ? $name : $label . ' (' . $name . ')';
+		}
+
+		return $removed;
+	}
+
+	/**
+	 * Field name => label, for a whole field tree.
+	 *
+	 * @param array[] $fields Field definitions.
+	 * @param array   $names  Entries collected so far, for the recursive call.
+	 * @return array
+	 */
+	private static function field_names( array $fields, array $names = array() ) {
+		foreach ( $fields as $field ) {
+			if ( ! is_array( $field ) || ! isset( $field['name'] ) ) {
+				continue;
+			}
+
+			$name = (string) $field['name'];
+
+			if ( '' === $name ) {
+				continue;
+			}
+
+			if ( ! isset( $names[ $name ] ) ) {
+				$names[ $name ] = isset( $field['label'] ) && '' !== trim( (string) $field['label'] ) ? (string) $field['label'] : $name;
+			}
+
+			if ( isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ) {
+				$names = self::field_names( $field['sub_fields'], $names );
+			}
+		}
+
+		return $names;
 	}
 
 	/**
@@ -1190,11 +1685,12 @@ class Sdc_Admin {
 	/**
 	 * Turn pasted JSON into field definitions.
 	 *
-	 * @param string $raw  JSON list.
-	 * @param string $type Component type.
+	 * @param string  $raw   Posted JSON.
+	 * @param string  $type  Component type.
+	 * @param array[] $base  Fields already stored in the file, for key reuse.
 	 * @return array[]|WP_Error
 	 */
-	public static function parse_fields( $raw, $type ) {
+	public static function parse_fields( $raw, $type, array $base = array() ) {
 		$raw = trim( (string) $raw );
 
 		if ( '' === $raw ) {
@@ -1222,7 +1718,7 @@ class Sdc_Admin {
 		}
 
 		$names  = array();
-		$fields = self::normalize_fields( $decoded, (string) $type, 1, $names );
+		$fields = self::normalize_fields( $decoded, (string) $type, 1, $names, $base );
 
 		if ( is_wp_error( $fields ) ) {
 			return $fields;
@@ -1238,9 +1734,10 @@ class Sdc_Admin {
 	 * @param string  $type         Component type.
 	 * @param int     $level        Nesting level, for error messages.
 	 * @param array   $names        Names already used on this level.
+	 * @param array[] $base         Stored fields on this level, for key reuse.
 	 * @return array[]|WP_Error
 	 */
-	private static function normalize_fields( array $fields, $type, $level, array &$names ) {
+	private static function normalize_fields( array $fields, $type, $level, array &$names, array $base = array() ) {
 		$out = array();
 
 		foreach ( $fields as $index => $field ) {
@@ -1309,8 +1806,18 @@ class Sdc_Admin {
 				);
 			}
 
+			$stored = self::stored_field( $base, $name );
+
+			/*
+			 * The key is what the page's saved values are looked up
+			 * by, so it follows the stored file whenever there is one:
+			 * a component written by hand may use any key, and
+			 * replacing it with the derived one would hide every value
+			 * already saved on a page. Only a field the file does not
+			 * know gets a fresh key.
+			 */
 			$normalized = array(
-				'key'   => 'field_sdc_' . $type . '_' . $name,
+				'key'   => isset( $stored['key'] ) && '' !== (string) $stored['key'] ? (string) $stored['key'] : 'field_sdc_' . $type . '_' . $name,
 				'label' => isset( $field['label'] ) && '' !== trim( (string) $field['label'] ) ? (string) $field['label'] : $name,
 				'name'  => $name,
 				'type'  => $field_type,
@@ -1324,7 +1831,8 @@ class Sdc_Admin {
 
 			if ( isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ) {
 				$sub_names = array();
-				$sub       = self::normalize_fields( $field['sub_fields'], $type, $level + 1, $sub_names );
+				$sub_base  = isset( $stored['sub_fields'] ) && is_array( $stored['sub_fields'] ) ? $stored['sub_fields'] : array();
+				$sub       = self::normalize_fields( $field['sub_fields'], $type, $level + 1, $sub_names, $sub_base );
 
 				if ( is_wp_error( $sub ) ) {
 					return $sub;
@@ -1337,6 +1845,23 @@ class Sdc_Admin {
 		}
 
 		return $out;
+	}
+
+	/**
+	 * The stored entry of a field, matched by name.
+	 *
+	 * @param array[] $base Stored fields on one level.
+	 * @param string  $name Field name.
+	 * @return array Empty when the file does not know the name.
+	 */
+	private static function stored_field( array $base, $name ) {
+		foreach ( $base as $entry ) {
+			if ( is_array( $entry ) && isset( $entry['name'] ) && (string) $entry['name'] === (string) $name ) {
+				return $entry;
+			}
+		}
+
+		return array();
 	}
 
 	/**
@@ -1385,12 +1910,18 @@ class Sdc_Admin {
 	/**
 	 * Write a component directory with its definition file.
 	 *
+	 * `$overwrite` is off for every task that creates a component: an
+	 * existing definition is another component's definition, and replacing
+	 * it would silently take its content away. The edit task is the one case
+	 * where replacing is the point.
+	 *
 	 * @param string $dir        Write directory.
 	 * @param string $type       Component type.
 	 * @param array  $definition Field group definition.
+	 * @param bool   $overwrite  Whether an existing definition may be replaced.
 	 * @return true|WP_Error
 	 */
-	private static function write_definition( $dir, $type, array $definition ) {
+	private static function write_definition( $dir, $type, array $definition, $overwrite = false ) {
 		$folder  = trailingslashit( $dir ) . $type;
 		$file    = $folder . '/definition.json';
 		$existed = is_dir( $folder );
@@ -1399,7 +1930,7 @@ class Sdc_Admin {
 		// died between mkdir and the rename. Writing into it finishes that
 		// attempt; refusing would block every retry with "already exists"
 		// while the folder stays behind forever.
-		if ( is_file( $file ) ) {
+		if ( is_file( $file ) && ! $overwrite ) {
 			return new WP_Error(
 				'sdc_folder_exists',
 				sprintf(
@@ -1601,22 +2132,36 @@ class Sdc_Admin {
 	 *
 	 * @param string $code   Notice code.
 	 * @param string $detail Optional detail text.
+	 * @param array  $extra  Extra query args, e.g. the edit form to return to.
+	 * @param array  $draft  Optional posted values the form shows again.
 	 */
-	private static function redirect( $code, $detail = '' ) {
+	private static function redirect( $code, $detail = '', array $extra = array(), array $draft = array() ) {
 		$args = array(
 			'page'       => self::MENU_SLUG,
 			'sdc_notice' => $code,
 		);
 
 		if ( '' !== $detail ) {
-			$token = wp_generate_password( 12, false, false );
+			/*
+			 * Lowercase on purpose: the reading side runs the token through
+			 * sanitize_key(), which lowercases. A mixed-case token would be
+			 * stored under a different key than it is looked up with, and
+			 * every error message would silently lose its reason.
+			 */
+			$token = strtolower( wp_generate_password( 12, false, false ) );
 
 			set_transient( 'sdc_pb_notice_' . $token, $detail, 5 * MINUTE_IN_SECONDS );
 
 			$args['sdc_detail'] = $token;
+
+			// Same one-time token as the message, so the draft cannot be
+			// read by guessing a second one.
+			if ( ! empty( $draft ) ) {
+				set_transient( 'sdc_pb_draft_' . $token, $draft, 5 * MINUTE_IN_SECONDS );
+			}
 		}
 
-		wp_safe_redirect( add_query_arg( $args, admin_url( 'admin.php' ) ) );
+		wp_safe_redirect( add_query_arg( array_merge( $args, $extra ), admin_url( 'admin.php' ) ) );
 		exit;
 	}
 }

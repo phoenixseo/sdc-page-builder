@@ -6,11 +6,23 @@ Ein komponentenbasierter Page-Builder für WordPress, der **Advanced Custom Fiel
 
 ## Warum es das gibt
 
-ACF und SCF können Felder. Flexible Inhalte baut man in ACF Pro über »Flexible Content« — ein Formular, das Zeilen stapelt. Das funktioniert, bis die Seite wächst: eine Seite mit 30 Komponenten erzeugt **1.373 Formularfelder**, und PHP nimmt nur die ersten **1.001** an (`max_input_vars`). Der Rest wird ohne Fehlermeldung verworfen. Die Seite meldet „gespeichert" und hat ein Viertel ihres Inhalts verloren.
+Ein CMS trennt Inhalt von Darstellung. Die gängigen Page Builder tun das Gegenteil: sie legen den Inhalt zusammen mit dem Markup ab — als Block-Attribut, als HTML, als serialisierten Baum. Wer danach eine Komponente ändert, muss jede Seite einzeln nachziehen. Der Inhalt sitzt im Code fest, und genau dort hört ein CMS auf, ein CMS zu sein.
 
-Zweites Problem: pro Subfeld zwei Datenbankzeilen. 100 Zeilen à 3 Felder = 602 Meta-Zeilen und **1.807 Queries** beim Speichern (733 ms). Ein einzelnes JSON-Dokument braucht **4 Queries** (8 ms) — für dieselben 30 Komponenten, die oben das Limit sprengen.
+Dieser Builder dreht das zurück. Eine Komponente ist ein Ordner: Felddefinition, Markup, Styles. Eine Seite speichert **nur**, welche Komponenten in welcher Reihenfolge vorkommen und welche Werte in ihren Feldern stehen — nichts davon, wie sie aussieht.
 
-Dieser Builder löst beides, ohne die Felder neu zu erfinden: Komponenten sind ACF-Feldgruppen, definiert als JSON im Repo. Nur das Speichern und das Bauen macht er selbst.
+Daraus folgen die drei Eigenschaften, um die es geht:
+
+- **Eine Änderung wirkt überall.** Wer `render.php` einer Komponente anfasst, ändert jede Instanz auf jeder Seite. Keine Migration, kein Suchen-und-Ersetzen, kein „das betrifft nur die neuen Seiten".
+- **Eine Komponente ist ein Ordner.** Definieren heißt: Ordner anlegen, JSON hinein. Kein Plugin, keine PHP-Klasse, kein neuer Feldtyp. Derselbe Ordner lässt sich in ein anderes Theme kopieren und funktioniert dort — er bringt seine Definition mit.
+- **Verwalten statt zusammenklicken.** Die Komponenten sind ein Katalog, sortiert und zählbar, nicht ein Haufen Layouts in einer Datenbank. Was da ist, steht im Dateisystem und ist versionierbar.
+
+Träger sind ACF und SCF — sie liefern die Feldtypen und die Admin-Oberfläche zum Ausfüllen. Gespeichert und gerendert wird selbst.
+
+### Was das technisch nach sich zieht
+
+Weil nur Werte gespeichert werden, ist das Dokument klein: 30 Komponenten sind **ein** Meta-Eintrag mit 12.583 Bytes statt 1.933 Zeilen mit zwei Zeilen pro Subfeld. Beim Speichern sind das **4 Queries / 8 ms** gegen 1.807 Queries / 733 ms.
+
+Und weil das Dokument als JSON über REST geht statt als Formular, greift `max_input_vars` nicht. Dieselben 30 Komponenten erzeugen im ACF-Formular **1.373 Felder**; PHP nimmt bei `max_input_vars = 1000` nur die ersten 1.001 an und verwirft den Rest ohne Fehlermeldung — die Seite meldet „gespeichert" und hat ein Viertel ihres Inhalts verloren. Das ist der Grund für den eigenen Speicherweg, nicht der Grund für dieses Plugin.
 
 ## Was gemessen ist
 
@@ -243,6 +255,43 @@ Der Filter läuft **nach** dem Template und hat das letzte Wort; ein leerer Rüc
 ACF liest Local JSON nur eine Ebene tief (`scan_files()` überspringt Unterverzeichnisse). Das Plugin meldet deshalb jedes Unterverzeichnis von `sdc-components/` einzeln als Ladepfad an — dadurch funktioniert „ein Ordner pro Komponente" mit unverändertem ACF-Loader. Weil jede Komponente ihren Ordner für sich hat, heißt die Definitionsdatei überall gleich: `definition.json`. Der Name sagt nichts über den Typ; den bestimmt der Gruppen-Key im JSON.
 
 Gespeichert wird aus dem Admin in den Ordner der Komponente zurück, nicht nach `acf-json/` — zwei Dateien mit demselben Key wären zwei Definitionen derselben Komponente.
+
+## Komponenten im Backend verwalten
+
+Alles oben Beschriebene geht auch ohne FTP: im Backend gibt es ein eigenes Menü **SDC**. Es zeigt den Katalog aller gefundenen Komponenten — Typ, Name, Felder, wo die Datei liegt (Plugin, Theme oder `wp-content`) und auf wie vielen Seiten die Komponente steht.
+
+Fünf Aktionen, alle auf denselben Dateien:
+
+| Aktion | Ergebnis |
+|---|---|
+| **Anlegen** | neuer Ordner mit `definition.json` |
+| **Bearbeiten** | ändert Name, Beschreibung, Icon und Feldliste einer bestehenden Komponente |
+| **Duplizieren** | Kopie mit neuem Typ und neuen Feld-Keys |
+| **Löschen** | entfernt Ordner samt `render.php` |
+| **Im-/Export** | `definition.json` herunterladen bzw. hochladen |
+
+**Anlegen** fragt Typ, Namen, Beschreibung, Icon und die Felder. Die Felder werden als JSON-Liste eingefügt, nicht in einem Formularnachbau zusammengeklickt:
+
+```json
+[
+  { "name": "heading", "type": "text", "label": "Überschrift", "required": 1 },
+  { "name": "items",   "type": "group", "label": "Einträge", "sub_fields": [
+      { "name": "text", "type": "textarea", "label": "Text" }
+  ] }
+]
+```
+
+Was daraus wird, entscheidet das Plugin: die Feld-Keys werden auf `field_sdc_<typ>_<name>` gesetzt. Zwei Komponenten können damit nicht denselben Key belegen, auch wenn beide ein Feld `text` haben — sonst würde die zweite Komponente das Feld der ersten überschreiben. Feldnamen werden auf `a-z0-9_` reduziert, unbekannte Feldtypen abgewiesen, unbekannte Eigenschaften nicht übernommen.
+
+**Duplizieren** legt die Kopie immer unter `wp-content/sdc-components/` an und schreibt den Gruppen-Key um. Das ist der Weg, eine mitgelieferte oder Theme-Komponente zu bearbeiten, ohne das Theme anzufassen: duplizieren, umbauen, Original im Theme bleibt als Vorlage.
+
+**Bearbeiten** öffnet dieselbe Maske wie das Anlegen, vorbelegt aus der Datei. Der Typ ist nur lesbar und Feld-Keys erscheinen nicht im Formular: ein Key ist der Schlüssel, unter dem eine Seite ihre Werte ablegt. Ein gespeicherter Key bleibt deshalb, wie er in der Datei steht — auch wenn er von Hand vergeben wurde und nicht dem Muster `field_sdc_<typ>_<name>` folgt. Nur ein Feld, das die Datei noch nicht kennt, bekommt einen neuen Key. Gespeichert wird ausschließlich, was das Formular kennt: `title`, `sdc_description`, `sdc_icon` und `fields`. `menu_order`, `location` und eigene Eigenschaften der Datei bleiben, wie sie sind, weil die Datei die Grundlage ist und nicht das Formular. Verschwindet ein Feldname aus der Liste, verlangt das Formular eine Bestätigung und nennt die betroffenen Felder; ohne Häkchen bleibt die Datei byte-identisch.
+
+**Löschen** geht nur für Dateien in `wp-content/sdc-components/`. Steht die Komponente noch auf Seiten, verlangt das Formular ein Häkchen — der Inhalt der Seiten bleibt in beiden Fällen erhalten, es verschwindet nur die Definition.
+
+**Import** überschreibt nichts: existiert der Typ schon, wird abgelehnt. Die hochgeladene Datei wird als JSON gelesen und gegen dieselben Regeln geprüft wie das Formular.
+
+Die Grenze: das Backend schreibt ausschließlich nach `wp-content/sdc-components/`. Theme- und Plugin-Ordner bleiben unverändert — dort ist der nächste Deploy die Wahrheit, und eine zweite Kopie in der Datenbank wäre eine zweite Quelle für denselben Gruppen-Key. `render.php` lässt sich hier deshalb auch nicht bearbeiten: Markup ist Theme-Code und gehört in die Versionsverwaltung, nicht in ein Textfeld.
 
 ## Voraussetzungen
 

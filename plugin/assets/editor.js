@@ -795,6 +795,34 @@
 		} );
 	}
 
+	/*
+	 * Block editor bridge.
+	 *
+	 * The block editor never submits a form. Measured in its own source: it
+	 * builds a FormData from the metabox DOM and posts that to post.php, so a
+	 * `submit` listener — which is what the classic editor fires — never runs.
+	 * Without this the document was never written and an author watched their
+	 * edit revert to the stored value.
+	 *
+	 * `editor.preSavePost` is the host's own hook for this moment, applied
+	 * with `applyFiltersAsync` before the post is saved. Throwing aborts the
+	 * post save: a page whose components could not be written must not look
+	 * saved.
+	 */
+	var gutenberg = window.wp && window.wp.data ? window.wp.data.select( 'core/editor' ) : null;
+
+	if ( gutenberg && window.wp.hooks ) {
+		window.wp.hooks.addFilter( 'editor.preSavePost', 'sdc-page-builder', function ( edits ) {
+			if ( ! dirty ) {
+				return edits;
+			}
+
+			return save().then( function () {
+				return edits;
+			} );
+		} );
+	}
+
 	refreshEmptyHint();
 
 	/**

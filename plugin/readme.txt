@@ -14,7 +14,9 @@ Build pages from reusable components that are defined as field groups and stored
 
 SDC Page Builder turns a page into a list of components. A component is a field group — heading, rich text, repeater, link, image — and the whole page is stored in one JSON document with a format version and a revision history.
 
-The point is that a new component type is a *directory*, not a new PHP class. Drop `sdc-components/card/` with a `definition.json` in it and the editor, the save route and the frontend output all handle it, because none of them know about specific types. The file name says nothing about the type — the group key inside it does.
+This separates content from markup, which most page builders do not: a page stores which components it uses and what values they hold, never how they look. Change a component's markup and every instance on every page changes with it — no per-page migration, and no page carrying a stale copy of the design.
+
+A new component type is a *directory*, not a new PHP class. Drop `sdc-components/card/` with a `definition.json` in it and the editor, the save route and the frontend output all handle it, because none of them know about specific types. The file name says nothing about the type — the group key inside it does.
 
 = Who this is for =
 

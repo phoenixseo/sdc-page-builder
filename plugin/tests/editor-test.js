@@ -113,7 +113,21 @@ function boot( options ) {
 	// property, so `reload` cannot be stubbed here; the assertions check the
 	// request and the status line the user sees instead.
 
-	const env = { dom, window, document: window.document, sent, requested, downloads, respond: null };
+	const env = { dom, window, document: window.document, sent, requested, downloads, filters: {}, respond: null };
+
+	// The block editor never submits a form, so the script hooks the host's
+	// own pre-save filter. Standing in for `wp.hooks` / `wp.data` here is what
+	// lets the test see whether that registration happens at all.
+	if ( opts.wp ) {
+		window.wp = {
+			data: { select: () => ( {} ) },
+			hooks: {
+				addFilter: ( hook, namespace, callback ) => {
+					env.filters[ hook ] = { namespace, callback };
+				},
+			},
+		};
+	}
 
 	window.fetch = function ( url, init ) {
 		sent.push( {
@@ -524,6 +538,63 @@ async function scenarioTools() {
 	env.dom.window.close();
 }
 
+/**
+ * Block editor: the document is written before the post is saved.
+ *
+ * Gutenberg builds a FormData from the metabox DOM and posts it to post.php;
+ * it never fires a form submit. A save path bound only to `submit` therefore
+ * never ran, and an author's edit silently reverted. The script registers on
+ * `editor.preSavePost` instead — this checks it does, and that the filter
+ * actually writes when something changed and stays quiet when nothing did.
+ */
+async function scenarioBlockEditorBridge() {
+	const env = boot( { wp: true } );
+	const { window, document } = env;
+
+	const filter = env.filters[ 'editor.preSavePost' ];
+	check( 'Block-Editor: preSavePost-Filter registriert', !!filter, Object.keys( env.filters ).join( ',' ) || '(keiner)' );
+	if ( ! filter ) {
+		env.dom.window.close();
+		return;
+	}
+	check( 'Block-Editor: Namespace sdc-page-builder', filter.namespace === 'sdc-page-builder', filter.namespace );
+
+	// Nothing changed: the filter passes the edits through without a request.
+	env.sent.length = 0;
+	const untouched = { content: '<p>unberührt</p>' };
+	const same = await filter.callback( untouched );
+	check( 'Block-Editor: ohne Änderung kein POST', env.sent.length === 0, env.sent.length + ' Requests' );
+	check( 'Block-Editor: ohne Änderung bleiben die Edits gleich', same === untouched, show( same && same.content ) );
+
+	// Typing marks the document dirty; the filter must then write it.
+	const first = componentsOf( document )[ 0 ];
+	type( window, leaf( first, 'heading' ), 'Aus dem Block-Editor' );
+
+	env.sent.length = 0;
+	const edits = { content: '<p>geändert</p>' };
+	const returned = await filter.callback( edits );
+
+	check( 'Block-Editor: Änderung löst einen POST aus', env.sent.length === 1, env.sent.length + ' Requests' );
+	check(
+		'Block-Editor: POST geht an den Seiten-Endpunkt',
+		env.sent.length === 1 && new RegExp( '/pages/' + meta.post + '$' ).test( env.sent[ 0 ].url ),
+		env.sent.length ? env.sent[ 0 ].url : '(kein Request)'
+	);
+	check(
+		'Block-Editor: POST trägt den geänderten Wert',
+		env.sent.length === 1 && JSON.stringify( env.sent[ 0 ].body ).indexOf( 'Aus dem Block-Editor' ) !== -1,
+		env.sent.length ? JSON.stringify( env.sent[ 0 ].body ).slice( 0, 90 ) : '(kein Request)'
+	);
+	check( 'Block-Editor: Edits kommen unverändert zurück', returned === edits, show( returned && returned.content ) );
+	check(
+		'Block-Editor: Status meldet gespeichert',
+		/Gespeichert\./.test( document.querySelector( '[data-sdc-status]' ).textContent ),
+		document.querySelector( '[data-sdc-status]' ).textContent
+	);
+
+	env.dom.window.close();
+}
+
 /** Let queued promises and timers settle. */
 function tick( window, ms ) {
 	return new Promise( ( resolve ) => window.setTimeout( resolve, ms || 10 ) );
@@ -549,6 +620,7 @@ function scenarioNoDebugLeftovers() {
 	await scenarioAddComponent();
 	await scenarioCollectShape();
 	await scenarioEditAndSave();
+	await scenarioBlockEditorBridge();
 	await scenarioTools();
 	scenarioNoDebugLeftovers();
 

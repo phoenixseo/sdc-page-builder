@@ -583,6 +583,28 @@ class AdminTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * The nonce a form carries is one the handler accepts.
+	 *
+	 * Rendering and verifying happen in two places, so they can drift apart
+	 * silently — and did: the form wrote `sdc_pb_nonce`, the handler asked
+	 * for `_wpnonce`, and every submit answered "the link you followed has
+	 * expired". This ties the two ends to the same constant.
+	 */
+	public function test_form_nonce_is_the_one_the_handler_verifies() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		ob_start();
+		$this->invoke( 'form_hidden', 'create' );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'name="' . Sdc_Admin::NONCE_FIELD . '"', $html );
+		$this->assertStringNotContainsString( 'name="_wpnonce"', $html );
+
+		$this->assertSame( 1, preg_match( '/name="' . Sdc_Admin::NONCE_FIELD . '" value="([^"]+)"/', $html, $m ) );
+		$this->assertSame( 1, wp_verify_nonce( $m[1], Sdc_Admin::NONCE_ACTION ) );
+	}
+
+	/**
 	 * A component without a label is refused.
 	 */
 	public function test_create_requires_a_label() {
@@ -721,7 +743,411 @@ class AdminTest extends Sdc_TestCase {
 		$this->assertSame( 'sdc_unknown_component', $result->get_error_code() );
 	}
 
+	// Editing an existing component.
+
+	/**
+	 * Saving an edit writes back into the same file, under the same key.
+	 *
+	 * The type is the identity of a component: it is the folder name, the
+	 * group key and the page's reference to it. An edit therefore changes
+	 * the label, the description, the icon and the fields — never the type.
+	 */
+	public function test_update_writes_back_into_the_same_file() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component( $type );
+
+		$_POST = array(
+			'sdc_type'        => $type,
+			'sdc_label'       => 'Hinweis neu',
+			'sdc_description' => 'Neue Beschreibung.',
+			'sdc_icon'        => 'info',
+			'sdc_fields'      => '[{"name":"text","type":"textarea","label":"Text"},{"name":"source","type":"text","label":"Quelle"}]',
+		);
+
+		$this->assertTrue( $this->invoke( 'update' ) );
+
+		$definition = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertIsArray( $definition, 'Die Datei ist nach dem Speichern gültiges JSON.' );
+		$this->assertSame( 'group_sdc_component_' . $type, $definition['key'], 'Der Gruppen-Key bleibt.' );
+		$this->assertSame( 'Hinweis neu', $definition['title'] );
+		$this->assertSame( 'Neue Beschreibung.', $definition['sdc_description'] );
+		$this->assertSame( 'info', $definition['sdc_icon'] );
+		$this->assertSame( 'field_sdc_' . $type . '_source', $definition['fields'][1]['key'] );
+		$this->assertCount( 1, glob( $this->dir . '/' . $type . '/definition.json*' ), 'Nur eine Datei im Ordner.' );
+		$this->assertFileDoesNotExist( $file . '.tmp', 'Kein .tmp-Rest nach dem Speichern.' );
+	}
+
+	/**
+	 * Properties the form does not show survive an edit.
+	 *
+	 * The file is the truth and may carry settings an earlier version or a
+	 * hand edit added. Rebuilding the definition from the form would reset
+	 * them, so the stored array is the base and only four keys change.
+	 */
+	public function test_update_keeps_properties_the_form_does_not_know() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component( $type );
+
+		$base                    = json_decode( (string) file_get_contents( $file ), true );
+		$base['menu_order']      = 7;
+		$base['position']        = 'side';
+		$base['sdc_version']     = 3;
+		$base['custom_property'] = 'bleibt';
+		$this->assertNotFalse( file_put_contents( $file, (string) wp_json_encode( $base ) ) );
+		$this->reload();
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Anders',
+			'sdc_fields' => '',
+		);
+
+		$this->assertTrue( $this->invoke( 'update' ) );
+
+		$definition = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertSame( 7, $definition['menu_order'] );
+		$this->assertSame( 'side', $definition['position'] );
+		$this->assertSame( 3, $definition['sdc_version'] );
+		$this->assertSame( 'bleibt', (string) $definition['custom_property'] );
+		$this->assertSame( 'Anders', $definition['title'] );
+	}
+
+	/**
+	 * A field whose name did not change keeps its key.
+	 *
+	 * This is the promise behind editing at all: the key is what the page's
+	 * stored values are looked up by, so an unchanged name must produce an
+	 * unchanged key — otherwise every saved page would go blank after an
+	 * edit that only renamed the label.
+	 */
+	public function test_update_keeps_the_key_of_an_unchanged_field() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component(
+			$type,
+			'[{"name":"text","type":"text","label":"Text"}]'
+		);
+
+		$before = json_decode( (string) file_get_contents( $file ), true );
+		$key    = $before['fields'][0]['key'];
+
+		// Same name, different label.
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '[{"name":"text","type":"text","label":"Andere Beschriftung"}]',
+		);
+
+		$this->assertTrue( $this->invoke( 'update' ) );
+
+		$after = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertSame( $key, $after['fields'][0]['key'], 'Der Feld-Key bleibt bei unverändertem Namen.' );
+		$this->assertSame( 'field_sdc_' . $type . '_text', $after['fields'][0]['key'] );
+		$this->assertSame( 'Andere Beschriftung', $after['fields'][0]['label'] );
+	}
+
+	/**
+	 * A key the file brought itself survives an edit.
+	 *
+	 * Deriving the key from the type and the field name is only correct for
+	 * components this plugin wrote. A hand written or imported definition
+	 * may use any key, and the page looks its values up by exactly that
+	 * key — replacing it would leave every saved value on every page
+	 * unreadable after a save that only changed a label.
+	 */
+	public function test_update_keeps_a_key_the_file_brought_itself() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component(
+			$type,
+			'[{"name":"text","type":"text","label":"Text"},{"name":"list","type":"group","sub_fields":[{"name":"item","type":"text"}]}]'
+		);
+
+		$base = json_decode( (string) file_get_contents( $file ), true );
+
+		$base['fields'][0]['key']                  = 'field_abc123';
+		$base['fields'][1]['key']                  = 'field_group_999';
+		$base['fields'][1]['sub_fields'][0]['key'] = 'field_sub_777';
+		$this->assertNotFalse( file_put_contents( $file, (string) wp_json_encode( $base ) ) );
+		$this->reload();
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '[{"name":"text","type":"text","label":"Neue Beschriftung"},{"name":"list","type":"group","sub_fields":[{"name":"item","type":"text"}]}]',
+		);
+
+		$this->assertTrue( $this->invoke( 'update' ) );
+
+		$after = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertSame( 'field_abc123', $after['fields'][0]['key'], 'Der fremde Feld-Key bleibt.' );
+		$this->assertSame( 'Neue Beschriftung', $after['fields'][0]['label'] );
+		$this->assertSame( 'field_group_999', $after['fields'][1]['key'], 'Der fremde Gruppen-Key bleibt.' );
+		$this->assertSame( 'field_sub_777', $after['fields'][1]['sub_fields'][0]['key'], 'Der fremde Unterfeld-Key bleibt.' );
+	}
+
+	/**
+	 * A dropped field is refused until the loss is confirmed, and the file
+	 * is left byte for byte as it was.
+	 *
+	 * Silently dropping a field is not a visible mistake: the values stay in
+	 * the page document, the field is gone from the editor, and nobody can
+	 * tell afterwards that content was lost.
+	 */
+	public function test_update_refuses_a_removed_field() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component(
+			$type,
+			'[{"name":"text","type":"text","label":"Text"},{"name":"source","type":"text","label":"Quelle"}]'
+		);
+
+		$before = (string) file_get_contents( $file );
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '[{"name":"text","type":"text","label":"Text"}]',
+		);
+
+		$result = $this->invoke( 'update' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_removed', $result->get_error_code() );
+		$this->assertStringContainsString( 'source', $result->get_error_message() );
+		$this->assertSame( $before, (string) file_get_contents( $file ), 'Die Datei bleibt unverändert.' );
+
+		// With the checkbox the same edit goes through.
+		$_POST['sdc_confirm_fields'] = '1';
+
+		$this->assertTrue( $this->invoke( 'update' ) );
+
+		$after = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertSame( 1, count( $after['fields'] ) );
+		$this->assertSame( 'text', $after['fields'][0]['name'] );
+	}
+
+	/**
+	 * A nested field counts as removed too.
+	 *
+	 * `sub_fields` are where a repeater's content lives, so a guard that only
+	 * looked at the top level would drop them silently.
+	 */
+	public function test_update_notices_a_removed_sub_field() {
+		$type = $this->fresh_type( 'callout' );
+		$this->create_component(
+			$type,
+			'[{"name":"items","type":"group","label":"Einträge","sub_fields":[{"name":"q","type":"text","label":"Frage"},{"name":"a","type":"textarea","label":"Antwort"}]}]'
+		);
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '[{"name":"items","type":"group","label":"Einträge","sub_fields":[{"name":"q","type":"text","label":"Frage"}]}]',
+		);
+
+		$result = $this->invoke( 'update' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_removed', $result->get_error_code() );
+		$this->assertStringContainsString( 'a', $result->get_error_message() );
+	}
+
+	/**
+	 * Adding a field is not a loss and needs no confirmation.
+	 */
+	public function test_update_adds_a_field_without_confirmation() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component( $type, '[{"name":"text","type":"text","label":"Text"}]' );
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => '[{"name":"text","type":"text","label":"Text"},{"name":"extra","type":"text","label":"Zusatz"}]',
+		);
+
+		$this->assertTrue( $this->invoke( 'update' ) );
+
+		$definition = json_decode( (string) file_get_contents( $file ), true );
+
+		$this->assertSame( 2, count( $definition['fields'] ) );
+	}
+
+	/**
+	 * A component outside the write directory cannot be edited in place.
+	 *
+	 * The shipped and theme components are deploy code: the next deploy would
+	 * overwrite the edit, so those are duplicable, not editable.
+	 */
+	public function test_update_refuses_a_component_outside_the_write_dir() {
+		$before = (string) file_get_contents( Sdc_Schema::dir() . 'hero/definition.json' );
+
+		$_POST = array(
+			'sdc_type'   => 'hero',
+			'sdc_label'  => 'Umgebaut',
+			'sdc_fields' => '',
+		);
+
+		$result = $this->invoke( 'update' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_outside_write_dir', $result->get_error_code() );
+		$this->assertSame( $before, (string) file_get_contents( Sdc_Schema::dir() . 'hero/definition.json' ), 'Die Plugin-Datei bleibt unverändert.' );
+	}
+
+	/**
+	 * An unknown type cannot be edited.
+	 */
+	public function test_update_refuses_an_unknown_type() {
+		$_POST = array(
+			'sdc_type'   => $this->fresh_type( 'nope' ),
+			'sdc_label'  => 'Nichts',
+			'sdc_fields' => '',
+		);
+
+		$result = $this->invoke( 'update' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_unknown_type', $result->get_error_code() );
+	}
+
+	/**
+	 * A missing label or broken JSON is refused and the file keeps its bytes.
+	 */
+	public function test_update_refuses_a_missing_label_and_broken_json() {
+		$type   = $this->fresh_type( 'callout' );
+		$file   = $this->create_component( $type, '[{"name":"text","type":"text","label":"Text"}]' );
+		$before = (string) file_get_contents( $file );
+
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => '',
+			'sdc_fields' => '',
+		);
+
+		$result = $this->invoke( 'update' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_no_label', $result->get_error_code() );
+		$this->assertSame( $before, (string) file_get_contents( $file ) );
+
+		$_POST['sdc_label']  = 'Callout';
+		$_POST['sdc_fields'] = '[{"name":';
+
+		$result = $this->invoke( 'update' );
+
+		$this->assertWPError( $result );
+		$this->assertSame( 'sdc_fields_json', $result->get_error_code() );
+		$this->assertSame( $before, (string) file_get_contents( $file ) );
+	}
+
+	/**
+	 * A rejected save keeps what was typed, so nothing has to be entered
+	 * twice.
+	 *
+	 * Two halves, tested without the redirect (which would exit): what is
+	 * captured from the form, and what the form reads back on the next
+	 * request. A mismatch between them is exactly how the fields would be
+	 * lost.
+	 */
+	public function test_a_rejected_save_keeps_the_typed_values() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component(
+			$type,
+			'[{"name":"text","type":"text","label":"Text"},{"name":"source","type":"text","label":"Quelle"}]'
+		);
+
+		// A removal without the checkbox: refused, and the typed list is the
+		// only copy of what the author just entered.
+		$typed = '[{"name":"text","type":"textarea","label":"Neuer Text"}]';
+
+		$_POST = array(
+			'sdc_type'        => $type,
+			'sdc_label'       => 'Getippter Name',
+			'sdc_description' => 'Getippte Beschreibung',
+			'sdc_icon'        => 'info',
+			'sdc_fields'      => $typed,
+		);
+
+		$this->assertWPError( $this->invoke( 'update' ) );
+
+		// What the redirect stores.
+		$draft = $this->invoke( 'posted_draft' );
+
+		$this->assertSame( 'Getippter Name', $draft['label'] );
+		$this->assertSame( 'Getippte Beschreibung', $draft['description'] );
+		$this->assertSame( 'info', $draft['icon'] );
+		$this->assertSame( $typed, $draft['fields'], 'Die Feldliste kommt unverändert aus dem Formular.' );
+
+		// What the form reads on the next request — under its own token.
+		$token = 'testtoken123';
+		set_transient( 'sdc_pb_draft_' . $token, $draft, 60 );
+		$_GET['sdc_detail'] = $token;
+
+		$read = $this->invoke( 'take_draft', $type );
+
+		unset( $_GET['sdc_detail'] );
+		delete_transient( 'sdc_pb_draft_' . $token );
+
+		$this->assertIsArray( $read, 'Der Entwurf liegt bereit.' );
+		$this->assertSame( $typed, $read['fields'] );
+		$this->assertSame( 'Getippter Name', $read['label'] );
+
+		// A draft of another component is not applied to this one.
+		set_transient( 'sdc_pb_draft_' . $token, $draft, 60 );
+		$_GET['sdc_detail'] = $token;
+
+		$this->assertNull( $this->invoke( 'take_draft', $type . '-anders' ) );
+
+		unset( $_GET['sdc_detail'] );
+		delete_transient( 'sdc_pb_draft_' . $token );
+	}
+
+	/**
+	 * The edit screen offers the stored fields without their generated keys.
+	 *
+	 * A key is derived from type and name, so showing it suggests it could be
+	 * edited. Everything else in the file is shown.
+	 */
+	public function test_edit_form_shows_the_fields_without_generated_keys() {
+		$type = $this->fresh_type( 'callout' );
+		$file = $this->create_component(
+			$type,
+			'[{"name":"text","type":"text","label":"Text","required":1}]'
+		);
+
+		$this->assertFileExists( $file );
+
+		$fields = $this->invoke( 'printable_fields', json_decode( (string) file_get_contents( $file ), true )['fields'] );
+
+		$this->assertStringNotContainsString( 'field_sdc_' . $type, $fields, 'Der generierte Key steht nicht im Formular.' );
+		$this->assertStringContainsString( '"required": 1', $fields, 'Eigene Feld-Einstellungen bleiben sichtbar.' );
+		$this->assertStringContainsString( '"label": "Text"', $fields );
+	}
+
 	// Helpers.
+
+	/**
+	 * Create one component in the scratch directory and return its file.
+	 *
+	 * @param string $type    Component type.
+	 * @param string $fields  JSON field list.
+	 * @return string Absolute path of the written definition.
+	 */
+	private function create_component( $type, $fields = '' ) {
+		$_POST = array(
+			'sdc_type'   => $type,
+			'sdc_label'  => 'Callout',
+			'sdc_fields' => $fields,
+		);
+
+		$this->assertTrue( $this->invoke( 'create' ) );
+		$this->reload();
+
+		return $this->dir . '/' . $type . '/definition.json';
+	}
 
 	/**
 	 * A component type this test owns alone.
