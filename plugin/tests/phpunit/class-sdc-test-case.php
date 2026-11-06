@@ -117,6 +117,23 @@ abstract class Sdc_TestCase extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Reset the asset registries before each test.
+	 *
+	 * WordPress resets posts, hooks and the query between tests, but not
+	 * `$wp_styles` / `$wp_scripts`. A stylesheet enqueued by one test is
+	 * therefore still enqueued in the next one, which makes an assertion like
+	 * "this component ships no CSS, so nothing was enqueued" pass alone and
+	 * fail in the suite. Resetting here keeps such a test honest without
+	 * weakening it.
+	 */
+	public function set_up() {
+		parent::set_up();
+
+		$GLOBALS['wp_styles']  = new WP_Styles();
+		$GLOBALS['wp_scripts'] = new WP_Scripts();
+	}
+
+	/**
 	 * Remove everything this test created.
 	 */
 	public function tear_down() {

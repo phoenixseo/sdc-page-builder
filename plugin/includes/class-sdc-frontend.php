@@ -46,6 +46,7 @@ class Sdc_Frontend {
 		// Priority 20: after `do_blocks` (9) and `wptexturize` (10), so the
 		// stored values are not run through the block parser or texturizer.
 		add_filter( 'the_content', array( __CLASS__, 'filter_content' ), 20 );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_component_styles' ) );
 	}
 
 	/**
@@ -77,10 +78,7 @@ class Sdc_Frontend {
 	 * @return string HTML; empty string when there is nothing to show.
 	 */
 	public static function render_post( $post_id ) {
-		$document   = Sdc_Store::get_data( (int) $post_id );
-		$components = isset( $document['components'] ) && is_array( $document['components'] )
-			? $document['components']
-			: array();
+		$components = self::document_components( $post_id );
 
 		$html = '';
 		foreach ( $components as $component ) {
@@ -92,6 +90,140 @@ class Sdc_Frontend {
 		}
 
 		return '<div class="sdc-page sdc-page--' . esc_attr( (string) $post_id ) . '">' . $html . '</div>';
+	}
+
+	/**
+	 * The component list of a post's stored document.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array[] Component entries; empty when the post has no document.
+	 */
+	private static function document_components( $post_id ) {
+		$document = Sdc_Store::get_data( (int) $post_id );
+
+		return isset( $document['components'] ) && is_array( $document['components'] )
+			? $document['components']
+			: array();
+	}
+
+	/**
+	 * Enqueue the stylesheet a component directory ships.
+	 *
+	 * A component directory owns three files with fixed names: the JSON, the
+	 * `render.php`, and a `component.css` for whatever the view needs beyond
+	 * the site's own styles. Enqueueing it here rather than leaving it to the
+	 * theme is what makes a component portable: drop the folder in, and the
+	 * page looks right without a second place to register the file. A
+	 * component without CSS simply has none.
+	 *
+	 * The version is the file's modification time, so editing the stylesheet
+	 * reaches readers without a plugin release.
+	 */
+	public static function enqueue_component_styles() {
+		// Only a singular view of a builder post prints components; enqueueing
+		// anywhere else would load files nobody sees.
+		if ( ! is_singular() ) {
+			return;
+		}
+
+		$post = get_post();
+
+		if ( ! $post || ! in_array( $post->post_type, Sdc_Editor::post_types(), true ) ) {
+			return;
+		}
+
+		$seen = array();
+
+		foreach ( self::document_components( (int) $post->ID ) as $component ) {
+			$type = isset( $component['type'] ) ? (string) $component['type'] : '';
+
+			// A document may repeat a type; one stylesheet is enough.
+			if ( '' === $type || isset( $seen[ $type ] ) ) {
+				continue;
+			}
+
+			$seen[ $type ] = true;
+
+			$file = Sdc_View::style( $type );
+
+			if ( '' === $file ) {
+				continue;
+			}
+
+			$src = self::asset_src( $file );
+
+			/**
+			 * Filters the URL of a component's stylesheet.
+			 *
+			 * For a site that serves component directories from a CDN, or
+			 * keeps them somewhere `asset_src()` has no root for.
+			 *
+			 * @param string $src  URL, empty when the path has no public root.
+			 * @param string $file Absolute path of the stylesheet.
+			 * @param string $type Component type.
+			 */
+			$src = (string) apply_filters( 'sdc_pb_component_style_src', $src, $file, $type );
+
+			if ( '' === $src ) {
+				continue;
+			}
+
+			wp_enqueue_style(
+				'sdc-component-' . sanitize_key( $type ),
+				$src,
+				array(),
+				(string) filemtime( $file )
+			);
+		}
+	}
+
+	/**
+	 * URL of a file that lives in a component directory.
+	 *
+	 * Component directories are not all under one root — a child theme, the
+	 * parent theme and `wp-content/` are each a possibility — so the path is
+	 * matched against the roots WordPress knows a URL for. A path outside all
+	 * of them has no URL and is skipped instead of guessed.
+	 *
+	 * @param string $file Absolute path.
+	 * @return string URL, or an empty string when the path has no public root.
+	 */
+	private static function asset_src( $file ) {
+		$file = wp_normalize_path( (string) $file );
+
+		if ( '' === $file ) {
+			return '';
+		}
+
+		$roots = array();
+
+		if ( function_exists( 'get_stylesheet_directory' ) ) {
+			$roots[ get_stylesheet_directory() ] = get_stylesheet_directory_uri();
+			$roots[ get_template_directory() ]   = get_template_directory_uri();
+		}
+
+		if ( defined( 'WP_CONTENT_DIR' ) ) {
+			$roots[ WP_CONTENT_DIR ] = content_url();
+		}
+
+		if ( defined( 'SDC_PB_DIR' ) && defined( 'SDC_PB_URL' ) ) {
+			$roots[ SDC_PB_DIR ] = SDC_PB_URL;
+		}
+
+		foreach ( $roots as $root => $url ) {
+			$root = untrailingslashit( wp_normalize_path( (string) $root ) );
+
+			// An empty root would normalise to "/" and match every path.
+			if ( '' === $root || '/' === $root ) {
+				continue;
+			}
+
+			if ( 0 === strpos( $file, $root . '/' ) ) {
+				return untrailingslashit( (string) $url ) . substr( $file, strlen( $root ) );
+			}
+		}
+
+		return '';
 	}
 
 	/**
@@ -176,9 +308,24 @@ class Sdc_Frontend {
 		// theme author knows exactly which names exist.
 		$render = static function () use ( $file, $type, $data, $component ) {
 			ob_start();
-			include $file;
 
-			return (string) ob_get_clean();
+			/*
+			 * The `sdc_*` helpers take no data argument, so the component
+			 * being rendered has to be known somewhere else: this is that
+			 * place. Pushed around the include and dropped in `finally`,
+			 * because a template that dies must not leave the next
+			 * component reading this one's values.
+			 */
+			Sdc_View::push( $type, $data );
+
+			try {
+				include $file;
+			} finally {
+				Sdc_View::pop();
+				$html = (string) ob_get_clean();
+			}
+
+			return $html;
 		};
 
 		return $render();

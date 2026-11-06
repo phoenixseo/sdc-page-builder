@@ -584,8 +584,7 @@ class Sdc_Admin {
 		echo '</td></tr>';
 
 		echo '<tr><th scope="row"><label for="sdc_fields">' . esc_html__( 'Felder', 'sdc-page-builder' ) . '</label></th><td>';
-		echo '<textarea id="sdc_fields" name="sdc_fields" rows="10" class="large-text code" spellcheck="false"></textarea>';
-		echo '<p class="description">' . esc_html__( 'JSON-Liste. Keys und Labels werden ergänzt, wenn sie fehlen. Leer lassen für eine Komponente ohne Felder.', 'sdc-page-builder' ) . '</p>';
+		Sdc_Field_Editor::render( '' );
 		self::render_fields_help();
 		echo '</td></tr>';
 
@@ -732,8 +731,10 @@ class Sdc_Admin {
 		echo '</td></tr>';
 
 		echo '<tr><th scope="row"><label for="sdc_fields">' . esc_html__( 'Felder', 'sdc-page-builder' ) . '</label></th><td>';
-		printf( '<textarea id="sdc_fields" name="sdc_fields" rows="16" class="large-text code" spellcheck="false">%s</textarea>', esc_textarea( $values['fields'] ) );
-		echo '<p class="description">' . esc_html__( 'JSON-Liste, ohne die key-Einträge: die Keys werden aus Typ und Name gebildet. Ein unveränderter Name behält seinen Key, und damit die Inhalte der Seiten.', 'sdc-page-builder' ) . '</p>';
+		Sdc_Field_Editor::render( $values['fields'] );
+		// Outside the editor on purpose: the confirmation must stay visible even
+		// when the JSON panel is collapsed, or the save fails without a reason
+		// the user can see.
 		printf(
 			'<p><label><input type="checkbox" name="sdc_confirm_fields" value="1" /> %s</label></p>',
 			esc_html__( 'Felder entfernen bestätigen', 'sdc-page-builder' )

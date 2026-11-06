@@ -57,6 +57,14 @@ require_once SDC_PB_DIR . 'includes/class-sdc-document.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-rest.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-renderer.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-editor.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-field-editor.php';
+/*
+ * The view layer registers the `sdc_*` template helpers at file scope, which
+ * is why there is no `Sdc_View::init()` below: a view is included by the
+ * frontend, not hooked into it, and the helpers have to exist before the first
+ * page renders.
+ */
+require_once SDC_PB_DIR . 'includes/class-sdc-view.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-admin.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-frontend.php';
 
@@ -95,6 +103,7 @@ function sdc_pb_boot() {
 
 	if ( is_admin() ) {
 		Sdc_Editor::init();
+		Sdc_Field_Editor::init();
 		Sdc_Admin::init();
 	}
 }
