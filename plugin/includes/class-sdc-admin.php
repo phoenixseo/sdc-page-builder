@@ -588,6 +588,11 @@ class Sdc_Admin {
 		self::render_fields_help();
 		echo '</td></tr>';
 
+		// No type yet: the panel shows the helper reference and takes a body,
+		// but the generator needs the saved field list and appears on the edit
+		// screen instead.
+		Sdc_View_Editor::render( '' );
+
 		echo '</table>';
 		submit_button( __( 'Komponente anlegen', 'sdc-page-builder' ) );
 		echo '</form>';
@@ -660,6 +665,7 @@ class Sdc_Admin {
 			'description' => isset( $base['sdc_description'] ) ? (string) $base['sdc_description'] : '',
 			'icon'        => isset( $base['sdc_icon'] ) ? (string) $base['sdc_icon'] : '',
 			'fields'      => self::printable_fields( isset( $base['fields'] ) && is_array( $base['fields'] ) ? $base['fields'] : array() ),
+			'view'        => Sdc_View::read( Sdc_View::file( self::write_dir(), $type ) ),
 		);
 
 		$draft = self::take_draft( $type );
@@ -745,6 +751,8 @@ class Sdc_Admin {
 		);
 		self::render_fields_help();
 		echo '</td></tr>';
+
+		Sdc_View_Editor::render( $type, $values['fields'], $values['view'] );
 
 		echo '</table>';
 		submit_button( __( 'Komponente speichern', 'sdc-page-builder' ) );
@@ -1036,6 +1044,7 @@ class Sdc_Admin {
 			'description' => self::posted( 'sdc_description' ),
 			'icon'        => self::posted( 'sdc_icon' ),
 			'fields'      => self::posted_raw( 'sdc_fields' ),
+			'view'        => self::posted_raw( Sdc_View_Editor::FIELD ),
 		);
 	}
 
@@ -1089,7 +1098,27 @@ class Sdc_Admin {
 			$fields
 		);
 
-		return self::write_definition( $dir, $type, $definition );
+		/*
+		 * The view is checked before anything is written. A view with a typo
+		 * would otherwise leave a component whose definition is saved and
+		 * whose markup fatals on the next page load — and the error would
+		 * point at the frontend instead of the form.
+		 */
+		$view_valid = Sdc_View_Editor::validate( $type, $fields );
+
+		if ( is_wp_error( $view_valid ) ) {
+			return $view_valid;
+		}
+
+		$written = self::write_definition( $dir, $type, $definition );
+
+		if ( is_wp_error( $written ) ) {
+			return $written;
+		}
+
+		// After the definition: a view without one would be a file nothing
+		// loads, and the component itself is the thing that has to exist.
+		return Sdc_View_Editor::save( $dir, $type, $fields );
 	}
 
 	/**
@@ -1281,7 +1310,19 @@ class Sdc_Admin {
 		$definition['sdc_icon']        = self::posted( 'sdc_icon' );
 		$definition['fields']          = $fields;
 
-		return self::write_definition( self::write_dir(), $type, $definition, true );
+		$view_valid = Sdc_View_Editor::validate( $type, $fields );
+
+		if ( is_wp_error( $view_valid ) ) {
+			return $view_valid;
+		}
+
+		$written = self::write_definition( self::write_dir(), $type, $definition, true );
+
+		if ( is_wp_error( $written ) ) {
+			return $written;
+		}
+
+		return Sdc_View_Editor::save( self::write_dir(), $type, $fields );
 	}
 
 	/**
