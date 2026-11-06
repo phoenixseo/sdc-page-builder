@@ -40,6 +40,13 @@ class ViewTest extends Sdc_TestCase {
 	private $content_dirs = array();
 
 	/**
+	 * Attachments created by the current test: `array( id, file )` pairs.
+	 *
+	 * @var array[]
+	 */
+	private $attachments = array();
+
+	/**
 	 * A scratch directory and a clean context stack.
 	 */
 	public function set_up() {
@@ -72,6 +79,14 @@ class ViewTest extends Sdc_TestCase {
 			$this->remove_dir( $dir );
 		}
 		$this->content_dirs = array();
+
+		foreach ( $this->attachments as $pair ) {
+			wp_delete_attachment( $pair[0], true );
+			if ( file_exists( $pair[1] ) ) {
+				wp_delete_file( $pair[1] );
+			}
+		}
+		$this->attachments = array();
 
 		if ( '' !== $this->root ) {
 			$this->remove_dir( $this->root );
@@ -857,6 +872,109 @@ class ViewTest extends Sdc_TestCase {
 	}
 
 	/* ---------------------------------------------------------------------
+	 * The generated view, executed
+	 *
+	 * The tests above compare the generator's output as text, and a string
+	 * comparison cannot see a comment that only becomes visible once PHP has
+	 * been closed. These render the scaffold through the frontend, which is
+	 * the only way such a bug shows up.
+	 * ------------------------------------------------------------------ */
+
+	/**
+	 * Fields with a repeat, so the scaffold has to produce real markup.
+	 *
+	 * @return array[]
+	 */
+	private function generated_fields() {
+		return array(
+			array(
+				'name'  => 'heading',
+				'label' => 'Überschrift',
+				'type'  => 'text',
+			),
+			array(
+				'name'       => 'items',
+				'label'      => 'Einträge',
+				'type'       => 'repeater',
+				'sub_fields' => array(
+					array(
+						'name'  => 'q',
+						'label' => 'Frage',
+						'type'  => 'text',
+					),
+				),
+			),
+		);
+	}
+
+	/**
+	 * What the generator hands to the textarea must not print itself.
+	 *
+	 * The body is a template, so the wrapper has already closed PHP for it.
+	 * A bare block comment therefore ends up in HTML mode and every generated
+	 * view showed its own header to visitors.
+	 */
+	public function test_a_generated_view_prints_no_header() {
+		$this->component_fixture( 'faq', Sdc_View::wrap( 'faq', Sdc_View::scaffold( 'faq', $this->generated_fields() ) ) );
+
+		$post_id = $this->make_page();
+		Sdc_Store::save_data( $post_id, array( 'components' => array( $this->faq_component( 'Fragen & Antworten', 2 ) ) ) );
+
+		$html = Sdc_Frontend::render_post( $post_id );
+
+		$this->assertStringNotContainsString( 'Ansicht von', $html );
+		$this->assertStringNotContainsString( 'Frei umbaubar', $html );
+	}
+
+	/**
+	 * The scaffold is usable as-is: fields, repeat and escaping all land.
+	 */
+	public function test_a_generated_view_renders_its_fields() {
+		$this->component_fixture( 'faq', Sdc_View::wrap( 'faq', Sdc_View::scaffold( 'faq', $this->generated_fields() ) ) );
+
+		$post_id = $this->make_page();
+		Sdc_Store::save_data( $post_id, array( 'components' => array( $this->faq_component( 'Fragen & Antworten', 2 ) ) ) );
+
+		$html = Sdc_Frontend::render_post( $post_id );
+
+		$this->assertStringContainsString( 'class="faq__heading"', $html );
+		$this->assertStringContainsString( 'Fragen &amp; Antworten', $html );
+		$this->assertStringContainsString( 'Frage 1', $html );
+		$this->assertStringContainsString( 'Frage 2', $html );
+	}
+
+	/**
+	 * A file field stores an ID, and the file need not be an image.
+	 *
+	 * `wp_get_attachment_image_src()` answers false for a PDF, so the lookup
+	 * that only asked for an image source returned null and the helper
+	 * printed nothing — a document link silently missing from every page.
+	 */
+	public function test_a_file_field_renders_a_non_image_attachment() {
+		$id = $this->attachment_fixture( 'application/pdf', 'probe.pdf', 'Probe PDF' );
+
+		ob_start();
+		sdc_file( 'doc', '', array( 'doc' => $id ) );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( '<a href=', $html );
+		$this->assertStringContainsString( 'Probe PDF', $html );
+	}
+
+	/**
+	 * An image field still refuses a document: a PDF is not a picture.
+	 */
+	public function test_an_image_field_skips_a_non_image_attachment() {
+		$id = $this->attachment_fixture( 'application/pdf', 'probe.pdf', 'Probe PDF' );
+
+		ob_start();
+		sdc_image( 'img', 'large', array(), array( 'img' => $id ) );
+		$html = (string) ob_get_clean();
+
+		$this->assertSame( '', $html );
+	}
+
+	/* ---------------------------------------------------------------------
 	 * Capability
 	 * ------------------------------------------------------------------ */
 
@@ -1103,6 +1221,40 @@ class ViewTest extends Sdc_TestCase {
 				return array( $dir );
 			}
 		);
+	}
+
+	/**
+	 * An attachment with a real file behind it, removed in tear_down().
+	 *
+	 * A bare post ID is not enough: the URLs under test come from the upload
+	 * directory, so the file has to exist on disk.
+	 *
+	 * @param string $mime  MIME type.
+	 * @param string $name  File name.
+	 * @param string $title Attachment title.
+	 * @return int Attachment ID.
+	 */
+	private function attachment_fixture( $mime, $name, $title ) {
+		$upload = wp_upload_dir();
+		$file   = trailingslashit( $upload['path'] ) . wp_generate_password( 8, false ) . '-' . $name;
+
+		file_put_contents( $file, 'probe' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
+
+		$id = wp_insert_attachment(
+			array(
+				'post_mime_type' => $mime,
+				'post_title'     => $title,
+				'post_status'    => 'inherit',
+			),
+			$file
+		);
+
+		$this->assertIsInt( $id );
+		$this->assertGreaterThan( 0, $id );
+
+		$this->attachments[] = array( (int) $id, $file );
+
+		return (int) $id;
 	}
 
 	/**

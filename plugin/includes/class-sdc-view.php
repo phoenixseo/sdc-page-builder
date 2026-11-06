@@ -614,9 +614,12 @@ class Sdc_View {
 	 *
 	 * @param mixed  $value Raw value: attachment array, ID, or URL.
 	 * @param string $size  Image size for an ID without a URL.
+	 * @param bool   $any   Accept attachments that have no image source. A file
+	 *                      field stores a PDF as an ID; `wp_get_attachment_image_src()`
+	 *                      answers false for it, so `sdc_file()` printed nothing.
 	 * @return array{url:string,alt:string,title:string,id:int,width:int,height:int}|null
 	 */
-	public static function attachment_parts( $value, $size = 'large' ) {
+	public static function attachment_parts( $value, $size = 'large', $any = false ) {
 		$id    = 0;
 		$url   = '';
 		$alt   = '';
@@ -642,6 +645,9 @@ class Sdc_View {
 				$url = (string) $src[0];
 				$w   = (int) $src[1];
 				$h   = (int) $src[2];
+			} elseif ( $any ) {
+				// PDF, archive, audio: a URL but no image source.
+				$url = (string) wp_get_attachment_url( $id );
 			}
 		}
 
@@ -744,10 +750,16 @@ class Sdc_View {
 		$slug = preg_replace( '/[^a-z0-9_\-]/', '-', strtolower( (string) $type ) );
 		$slug = '' === $slug ? 'component' : $slug;
 
-		$head = "/*\n";
+		/*
+		 * The header is PHP, not markup: the body is a template that the
+		 * wrapper already closed PHP for, so a bare `/* … *&#47;` here would
+		 * be printed to the page as text. Opening PHP just for the comment
+		 * keeps it invisible and still readable while editing.
+		 */
+		$head = "<?php /*\n";
 		$head .= " * Ansicht von \"{$type}\", erzeugt aus den Feldern.\n";
 		$head .= " * Frei umbaubar: Klassen, Reihenfolge und Tags gehören dir.\n";
-		$head .= " */\n";
+		$head .= " */ ?>\n";
 
 		$body = self::scaffold_fields( $fields, $slug, '', '' );
 
@@ -1088,7 +1100,7 @@ if ( ! function_exists( 'sdc_file' ) ) {
 	 * @param array|null $context Data array; null means the current component.
 	 */
 	function sdc_file( $key, $class = '', $context = null ) {
-		$parts = Sdc_View::attachment_parts( Sdc_View::resolve( $key, $context ), 'full' );
+		$parts = Sdc_View::attachment_parts( Sdc_View::resolve( $key, $context ), 'full', true );
 
 		if ( null === $parts ) {
 			return;
