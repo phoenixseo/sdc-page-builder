@@ -95,9 +95,11 @@ class ViewTest extends Sdc_TestCase {
 		parent::tear_down();
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Paths
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * The view of a component is `render.php` in that component's directory.
@@ -162,9 +164,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertSame( '', Sdc_View::style( '' ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Body round trip
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * The wrapper writes a header, the marker, and then the body as a template.
@@ -239,9 +243,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertSame( '', Sdc_View::read( '' ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Lint
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * A normal view is markup with PHP islands, exactly like a theme file.
@@ -279,9 +285,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertTrue( Sdc_View::lint( "?>\n<p>x</p>\n<?php echo 'y';" ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Write
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * Writing a view creates the component directory it belongs in.
@@ -341,9 +349,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertSame( 'sdc_view_type', $result->get_error_code() );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Context
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * The stack exists because a view may render another component.
@@ -390,7 +400,10 @@ class ViewTest extends Sdc_TestCase {
 	 * A path that does not exist is null, never a warning.
 	 */
 	public function test_resolve_returns_null_for_a_missing_path() {
-		$data = array( 'heading' => 'x', 'cta' => array( 'title' => 'y' ) );
+		$data = array(
+			'heading' => 'x',
+			'cta'     => array( 'title' => 'y' ),
+		);
 
 		$this->assertNull( Sdc_View::resolve( 'nichts', $data ) );
 		$this->assertNull( Sdc_View::resolve( 'cta.url', $data ) );
@@ -409,9 +422,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertSame( 'Zeile', $this->capture( 'sdc_text', 'heading', array( 'heading' => 'Zeile' ) ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Value normalisation
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * Text output has one shape, whatever the field returned.
@@ -519,9 +534,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertNull( Sdc_View::attachment_parts( 0 ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Helpers
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * The documented helper list is the helper list that exists.
@@ -593,8 +610,8 @@ class ViewTest extends Sdc_TestCase {
 		Sdc_View::push(
 			'hero',
 			array(
-				'cta'    => array( 'url' => 'https://example.org/ziel?mit=query' ),
-				'boese'  => 'javascript:alert(1)',
+				'cta'     => array( 'url' => 'https://example.org/ziel?mit=query' ),
+				'boese'   => 'javascript:alert(1)',
 				'relativ' => '/kontakt',
 			)
 		);
@@ -623,10 +640,10 @@ class ViewTest extends Sdc_TestCase {
 		Sdc_View::push(
 			'hero',
 			array(
-				'null'  => '0',
-				'leer'  => '   ',
-				'falsch' => false,
-				'liste' => array( array( 'q' => 'x' ) ),
+				'null'      => '0',
+				'leer'      => '   ',
+				'falsch'    => false,
+				'liste'     => array( array( 'q' => 'x' ) ),
 				'leerliste' => array(),
 			)
 		);
@@ -751,7 +768,10 @@ class ViewTest extends Sdc_TestCase {
 		sdc_each(
 			'items',
 			function ( $row, $index ) {
-				echo $index . ':' . $row['q'] . '|';
+				// Deliberately raw: the test asserts that the helper hands the
+				// callback the row and its index unchanged, so escaping here
+				// would test the test.
+				echo $index . ':' . $row['q'] . '|'; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Test output, captured, not rendered.
 			}
 		);
 		$out = (string) ob_get_clean();
@@ -804,9 +824,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertSame( '', $this->capture( 'sdc_fields' ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Scaffold
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * The generated view uses the helper that fits each field type.
@@ -871,14 +893,16 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertStringContainsString( 'hero', Sdc_View::scaffold_hint( 'hero' ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * The generated view, executed
 	 *
 	 * The tests above compare the generator's output as text, and a string
 	 * comparison cannot see a comment that only becomes visible once PHP has
 	 * been closed. These render the scaffold through the frontend, which is
 	 * the only way such a bug shows up.
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * Fields with a repeat, so the scaffold has to produce real markup.
@@ -974,9 +998,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertSame( '', $html );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Capability
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * A view is PHP on the server, so the gate is the theme editor's gate.
@@ -1005,9 +1031,11 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertTrue( Sdc_View::can_edit( 'hero' ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Runtime: the frontend as the caller
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * A view reads its component through the helpers — no `$data` access, no
@@ -1191,20 +1219,22 @@ class ViewTest extends Sdc_TestCase {
 		$this->assertNotFalse( has_action( 'wp_enqueue_scripts', array( 'Sdc_Frontend', 'enqueue_component_styles' ) ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Fixtures
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * Run a helper and return what it echoed.
 	 *
-	 * @param string $function Helper name.
-	 * @param mixed  ...$args  Arguments.
+	 * @param string $helper Helper name.
+	 * @param mixed  ...$args Arguments.
 	 * @return string
 	 */
-	private function capture( $function, ...$args ) {
+	private function capture( $helper, ...$args ) {
 		ob_start();
-		call_user_func_array( $function, $args );
+		call_user_func_array( $helper, $args );
 
 		return (string) ob_get_clean();
 	}

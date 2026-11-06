@@ -74,9 +74,11 @@ class ViewEditorTest extends Sdc_TestCase {
 		parent::tear_down();
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Markup
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * The panel is a labelled textarea, not a bare box.
@@ -135,9 +137,11 @@ class ViewEditorTest extends Sdc_TestCase {
 		$this->assertSame( '', $this->panel( 'hero', $this->text_fields() ) );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * Save
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * What the user typed is what lands in the file.
@@ -225,9 +229,11 @@ class ViewEditorTest extends Sdc_TestCase {
 		$this->assertStringNotContainsString( 'nicht verwenden', $body );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
 	 * The admin save path
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
 
 	/**
 	 * Creating a component writes its view in the same request.
@@ -274,9 +280,148 @@ class ViewEditorTest extends Sdc_TestCase {
 		$this->assertFileDoesNotExist( $this->dir . '/' . $type . '/definition.json' );
 	}
 
-	/* ---------------------------------------------------------------------
+	/*
+	---------------------------------------------------------------------
+	 * The seam to the real form
+	 *
+	 * The panel tests above hand `render()` a field array, which is what the
+	 * method wants. The edit form does not: it carries the field list as the
+	 * JSON its textarea shows. A test that only ever passes the wanted type
+	 * cannot see a mismatch there — it passed while the edit form died with
+	 * a TypeError, taking the save button with it.
+	 * ------------------------------------------------------------------
+	 */
+
+	/**
+	 * The edit form renders the panel, with the stored body in it.
+	 */
+	public function test_the_edit_form_carries_the_panel() {
+		// A type of its own: `hero` and `faq` ship with the plugin, and the
+		// loader would resolve the type to the plugin's read-only schema
+		// instead of the scratch fixture — the form would then refuse to edit
+		// a component that only looks like the one under test.
+		$type = $this->fresh_type( 'held' );
+
+		$this->write_definition( $type, $this->text_fields() );
+		$this->write_view( $type, '<article><?php sdc_text( \'heading\' ); ?></article>' );
+		$this->reload_schema();
+
+		$html = $this->edit_form( $type );
+
+		$this->assertStringContainsString( 'name="sdc_view_body"', $html );
+		$this->assertStringContainsString( 'sdc_generate_view', $html );
+		$this->assertStringContainsString( 'sdc_text( &#039;heading&#039; )', $html );
+
+		// The panel sits inside the form and before its end: a form that
+		// stops early has no save button, which is how the TypeError showed.
+		$this->assertStringContainsString( '</form>', $html );
+		$this->assertStringContainsString( 'Komponente speichern', $html );
+		$this->assertLessThan( strpos( $html, '</form>' ), strpos( $html, 'sdc_view_body' ) );
+	}
+
+	/**
+	 * A component without fields still gets the panel, just no generator.
+	 */
+	public function test_the_edit_form_of_a_fieldless_component_shows_the_panel() {
+		$type = $this->fresh_type( 'leer' );
+
+		$this->write_definition( $type, array() );
+		$this->reload_schema();
+
+		$html = $this->edit_form( $type );
+
+		$this->assertStringContainsString( 'name="sdc_view_body"', $html );
+		$this->assertStringNotContainsString( 'sdc_generate_view', $html );
+		$this->assertStringContainsString( '</form>', $html );
+	}
+
+	/*
+	---------------------------------------------------------------------
 	 * Helpers
-	 * ------------------------------------------------------------------ */
+	 * ------------------------------------------------------------------
+	 */
+
+	/**
+	 * A component type this test owns alone.
+	 *
+	 * `hero` and `faq` ship with the plugin and are read-only. The host also
+	 * keeps loaded field groups for the whole PHP process, so two tests must
+	 * never share a type: the second would see the first one's leftover.
+	 *
+	 * @param string $base Readable prefix.
+	 * @return string Valid component type.
+	 */
+	private function fresh_type( $base ) {
+		return $base . '-' . strtolower( wp_generate_password( 6, false ) );
+	}
+
+	/**
+	 * Write a definition, as an earlier save would have.
+	 *
+	 * @param string  $type   Component type.
+	 * @param array[] $fields Field definitions.
+	 */
+	private function write_definition( $type, array $fields ) {
+		$dir = $this->dir . '/' . $type;
+
+		$this->assertTrue( wp_mkdir_p( $dir ) );
+
+		$fields = array_map(
+			static function ( $field ) use ( $type ) {
+				$field['key'] = 'field_sdc_' . str_replace( '-', '_', $type ) . '_' . $field['name'];
+				return $field;
+			},
+			$fields
+		);
+
+		file_put_contents( // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Test fixture.
+			$dir . '/definition.json',
+			(string) wp_json_encode(
+				array(
+					'key'    => Sdc_Schema::KEY_PREFIX . $type,
+					'title'  => 'Held',
+					'fields' => $fields,
+				)
+			)
+		);
+	}
+
+	/**
+	 * Let the host read the component files again.
+	 */
+	private function reload_schema() {
+		Sdc_Schema::flush();
+
+		if ( function_exists( 'acf_get_store' ) ) {
+			foreach ( array( 'field-groups', 'fields' ) as $store ) {
+				$instance = acf_get_store( $store );
+				if ( $instance && method_exists( $instance, 'reset' ) ) {
+					$instance->reset();
+				}
+			}
+		}
+
+		// The hook name comes from the host and cannot be renamed.
+		do_action( 'acf/include_fields' ); // phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores -- Hook defined by ACF/SCF.
+
+		Sdc_Schema::flush();
+	}
+
+	/**
+	 * Render the edit form for a type.
+	 *
+	 * @param string $type Component type.
+	 * @return string HTML.
+	 */
+	private function edit_form( $type ) {
+		$method = new ReflectionMethod( 'Sdc_Admin', 'render_edit_form' );
+		$method->setAccessible( true );
+
+		ob_start();
+		$method->invoke( null, $type );
+
+		return (string) ob_get_clean();
+	}
 
 	/**
 	 * Render the panel for a type.

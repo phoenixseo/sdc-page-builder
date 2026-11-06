@@ -257,7 +257,14 @@ class Sdc_View {
 			 * The marker sits in front of the header's closing tag, so the
 			 * body starts after that tag. Both are part of the file, not the
 			 * body. Written as an escape so this comment cannot close PHP.
+			 *
+			 * The trim keeps double quotes on purpose: a tab escape is only
+			 * a tab there. Single quotes would make it a backslash and a
+			 * letter t, and ltrim() would then eat every leading t of the
+			 * body. phpcbf offers exactly that rewrite, which is why the
+			 * sniff is silenced instead of obeyed.
 			 */
+			// phpcs:ignore Squiz.Strings.DoubleQuoteUsage.NotRequired -- A tab escape needs double quotes.
 			$code = ltrim( substr( $code, $pos + strlen( self::BODY_MARKER ) ), " 	" );
 
 			if ( 0 === strpos( $code, '?>' ) ) {
@@ -756,7 +763,7 @@ class Sdc_View {
 		 * be printed to the page as text. Opening PHP just for the comment
 		 * keeps it invisible and still readable while editing.
 		 */
-		$head = "<?php /*\n";
+		$head  = "<?php /*\n";
 		$head .= " * Ansicht von \"{$type}\", erzeugt aus den Feldern.\n";
 		$head .= " * Frei umbaubar: Klassen, Reihenfolge und Tags gehören dir.\n";
 		$head .= " */ ?>\n";
@@ -1063,12 +1070,12 @@ if ( ! function_exists( 'sdc_link' ) ) {
 	/**
 	 * Echo an `<a>` for a link field.
 	 *
-	 * @param string     $key     Field name or dotted path.
-	 * @param string     $class   Optional class attribute.
-	 * @param string     $text    Optional label; the field's title is the default.
-	 * @param array|null $context Data array; null means the current component.
+	 * @param string     $key       Field name or dotted path.
+	 * @param string     $css_class Optional class attribute.
+	 * @param string     $text      Optional label; the field's title is the default.
+	 * @param array|null $context   Data array; null means the current component.
 	 */
-	function sdc_link( $key, $class = '', $text = '', $context = null ) {
+	function sdc_link( $key, $css_class = '', $text = '', $context = null ) {
 		$parts = Sdc_View::link_parts( Sdc_View::resolve( $key, $context ) );
 
 		if ( null === $parts ) {
@@ -1084,7 +1091,7 @@ if ( ! function_exists( 'sdc_link' ) ) {
 		printf(
 			'<a href="%1$s"%2$s%3$s>%4$s</a>',
 			esc_url( $parts['url'] ),
-			'' !== $class ? ' class="' . esc_attr( $class ) . '"' : '',
+			'' !== $css_class ? ' class="' . esc_attr( $css_class ) . '"' : '',
 			'_blank' === $parts['target'] ? ' target="_blank" rel="noopener noreferrer"' : '',
 			esc_html( $label )
 		);
@@ -1095,11 +1102,11 @@ if ( ! function_exists( 'sdc_file' ) ) {
 	/**
 	 * Echo an `<a>` for a file field.
 	 *
-	 * @param string     $key     Field name or dotted path.
-	 * @param string     $class   Optional class attribute.
-	 * @param array|null $context Data array; null means the current component.
+	 * @param string     $key       Field name or dotted path.
+	 * @param string     $css_class Optional class attribute.
+	 * @param array|null $context   Data array; null means the current component.
 	 */
-	function sdc_file( $key, $class = '', $context = null ) {
+	function sdc_file( $key, $css_class = '', $context = null ) {
 		$parts = Sdc_View::attachment_parts( Sdc_View::resolve( $key, $context ), 'full', true );
 
 		if ( null === $parts ) {
@@ -1111,7 +1118,7 @@ if ( ! function_exists( 'sdc_file' ) ) {
 		printf(
 			'<a href="%1$s"%2$s>%3$s</a>',
 			esc_url( $parts['url'] ),
-			'' !== $class ? ' class="' . esc_attr( $class ) . '"' : '',
+			'' !== $css_class ? ' class="' . esc_attr( $css_class ) . '"' : '',
 			esc_html( $label )
 		);
 	}

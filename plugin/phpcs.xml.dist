@@ -56,6 +56,18 @@
 	</rule>
 
 	<!--
+		class-sdc-view.php holds the Sdc_View class and, below it, the sdc_*
+		template helpers as `function_exists()`-guarded file-level functions.
+		That mix is the point of the file: a view is a template the frontend
+		includes, and the helpers have to exist before the first page renders,
+		so they cannot be class methods called through an instance. The sniff
+		that prefers one kind per file is switched off for this path only.
+	-->
+	<rule ref="Universal.Files.SeparateFunctionsFromOO.Mixed">
+		<exclude-pattern>includes/class-sdc-view.php</exclude-pattern>
+	</rule>
+
+	<!--
 		The test suite under tests/phpunit/ is held to the same standard as the
 		plugin, with three exclusions that are properties of PHPUnit and of
 		fixtures, not of our code:

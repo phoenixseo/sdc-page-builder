@@ -88,7 +88,7 @@ class Sdc_View_Editor {
 
 		echo '<p class="description">';
 		printf(
-			/* translators: 1: $type, 2: $data, 3: $component */
+			/* translators: 1: name of the type variable, 2: name of the data variable, 3: name of the component variable. */
 			esc_html__( 'Verfügbar sind %1$s (Typ), %2$s (Feldwerte) und %3$s (der Komponenten-Eintrag), dazu die Helfer unten. Ein Syntaxfehler wird beim Speichern abgelehnt, die Seite bleibt also heil.', 'sdc-page-builder' ),
 			'<code>$type</code>',
 			'<code>$data</code>',

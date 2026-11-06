@@ -752,7 +752,15 @@ class Sdc_Admin {
 		self::render_fields_help();
 		echo '</td></tr>';
 
-		Sdc_View_Editor::render( $type, $values['fields'], $values['view'] );
+		/*
+		 * The panel needs the field definitions, not the JSON the textarea
+		 * above shows: the generator walks arrays. `$values['fields']` is a
+		 * JSON string — for a draft it may even be broken, and then there is
+		 * simply nothing to generate from and the panel says so.
+		 */
+		$view_fields = json_decode( (string) $values['fields'], true );
+
+		Sdc_View_Editor::render( $type, is_array( $view_fields ) ? $view_fields : array(), $values['view'] );
 
 		echo '</table>';
 		submit_button( __( 'Komponente speichern', 'sdc-page-builder' ) );
