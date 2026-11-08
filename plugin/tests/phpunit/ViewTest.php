@@ -1126,8 +1126,14 @@ class ViewTest extends Sdc_TestCase {
 
 	/**
 	 * A component's own stylesheet is enqueued with the page that renders it.
+	 *
+	 * This is the fallback path: by default the styles are inlined by
+	 * `Sdc_Block`, and `enqueue_component_styles()` steps aside for it. A site
+	 * that turned inlining off gets one file per component here.
 	 */
 	public function test_component_css_is_enqueued_for_a_rendered_page() {
+		$this->without_inline_styles();
+
 		$css = $this->content_fixture( 'hero', '.sdc-hero{color:red}' );
 
 		$post_id = $this->make_page();
@@ -1149,6 +1155,23 @@ class ViewTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * With inlining on — the default — this method enqueues nothing, so the
+	 * page does not carry the same CSS twice: once inline, once as a file.
+	 */
+	public function test_component_css_is_not_enqueued_twice_when_inlined() {
+		$this->content_fixture( 'hero', '.sdc-hero{color:red}' );
+
+		$post_id = $this->make_page();
+		Sdc_Store::save_data( $post_id, array( 'components' => array( $this->hero_component( 'Mit CSS' ) ) ) );
+
+		$this->go_to( get_permalink( $post_id ) );
+
+		Sdc_Frontend::enqueue_component_styles();
+
+		$this->assertFalse( wp_style_is( 'sdc-component-hero', 'enqueued' ) );
+	}
+
+	/**
 	 * A component without a stylesheet enqueues nothing — no 404 in the head.
 	 */
 	public function test_component_css_is_not_enqueued_without_a_file() {
@@ -1166,6 +1189,10 @@ class ViewTest extends Sdc_TestCase {
 	 * Outside a singular view there is no page to style.
 	 */
 	public function test_component_css_is_not_enqueued_outside_a_singular_view() {
+		// Without the filter this test would pass for the wrong reason: the
+		// inlining guard returns first, so the singular check is never reached.
+		$this->without_inline_styles();
+
 		$this->content_fixture( 'hero', '.sdc-hero{color:red}' );
 
 		Sdc_Frontend::enqueue_component_styles();
@@ -1178,6 +1205,8 @@ class ViewTest extends Sdc_TestCase {
 	 * guessed. The filter is the documented way out for such a site.
 	 */
 	public function test_component_css_needs_a_public_url() {
+		$this->without_inline_styles();
+
 		$this->component_fixture( 'hero', "<?php sdc_text( 'heading' ); ?>", '.sdc-hero{color:red}' );
 
 		$post_id = $this->make_page();
@@ -1251,6 +1280,18 @@ class ViewTest extends Sdc_TestCase {
 				return array( $dir );
 			}
 		);
+	}
+
+	/**
+	 * Switch component styles back to one file per component.
+	 *
+	 * By default `Sdc_Block` inlines the page's component styles into the head
+	 * and `enqueue_component_styles()` steps aside. The file path is still the
+	 * documented way for a site that wants separate stylesheets, so it is
+	 * tested through the filter that turns inlining off.
+	 */
+	private function without_inline_styles() {
+		add_filter( 'sdc_pb_inline_component_styles', '__return_false' );
 	}
 
 	/**

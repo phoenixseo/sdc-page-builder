@@ -120,6 +120,16 @@ class Sdc_Frontend {
 	 * reaches readers without a plugin release.
 	 */
 	public static function enqueue_component_styles() {
+		/*
+		 * Component styles are inlined into the head by
+		 * `Sdc_Block::print_component_styles()`, which reads the same document
+		 * and also covers blocks. Running both would ship every stylesheet
+		 * twice — once inline, once as a file.
+		 */
+		if ( apply_filters( 'sdc_pb_inline_component_styles', true ) && class_exists( 'Sdc_Block' ) ) {
+			return;
+		}
+
 		// Only a singular view of a builder post prints components; enqueueing
 		// anywhere else would load files nobody sees.
 		if ( ! is_singular() ) {
@@ -224,6 +234,38 @@ class Sdc_Frontend {
 		}
 
 		return '';
+	}
+
+	/**
+	 * Render one component from an explicit type and data array.
+	 *
+	 * The metabox path reads a stored document; a block carries its own
+	 * attributes. Both must end in `render_component()`, or the canvas and the
+	 * page would disagree about what a component looks like.
+	 *
+	 * @param string $type Component type.
+	 * @param array  $data Field values keyed by field name.
+	 * @return string HTML.
+	 */
+	public static function render_instance( $type, array $data ) {
+		return self::render_component(
+			array(
+				'type' => (string) $type,
+				'data' => $data,
+			)
+		);
+	}
+
+	/**
+	 * Public URL of a component's stylesheet, empty when it has none.
+	 *
+	 * @param string $type Component type.
+	 * @return string
+	 */
+	public static function component_style_url( $type ) {
+		$file = Sdc_View::style( $type );
+
+		return '' === $file ? '' : self::asset_src( $file );
 	}
 
 	/**
@@ -486,7 +528,8 @@ class Sdc_Frontend {
 			return '';
 		}
 
-		return '<div class="sdc-field sdc-field--' . esc_attr( $type ) . ' sdc-field--' . esc_attr( self::slug( $name ) ) . '">'
+		return '<div class="sdc-field sdc-field--' . esc_attr( $type ) . ' sdc-field--' . esc_attr( self::slug( $name ) ) . '"'
+			. ' data-sdc-name="' . esc_attr( $name ) . '">'
 			. $html
 			. '</div>';
 	}

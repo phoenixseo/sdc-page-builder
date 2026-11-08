@@ -1,0 +1,85 @@
+/*
+ * Editor look of the sdc/component block.
+ *
+ * The canvas shows the component's real frontend markup, so this file styles
+ * only what WordPress adds around it — no component styling of its own. The
+ * component's own component.css is enqueued separately for the types the post
+ * places.
+ */
+
+.sdc-block {
+	border: 1px dashed rgba(0, 0, 0, 0.15);
+	border-radius: 4px;
+	padding: 8px;
+}
+
+.sdc-block__empty {
+	padding: 24px 16px;
+	text-align: center;
+	color: #50575e;
+}
+
+/*
+ * Reserve height for a block whose preview has not mounted yet, so it is
+ * reachable and the intersection observer has something to observe.
+ */
+.sdc-block__pending {
+	min-height: 28px;
+	padding: 4px 8px;
+	color: #646970;
+	font-size: 12px;
+	border-radius: 2px;
+	background: repeating-linear-gradient(
+		45deg,
+		rgba(0, 0, 0, 0.03),
+		rgba(0, 0, 0, 0.03) 6px,
+		transparent 6px,
+		transparent 12px
+	);
+}
+
+.sdc-block__empty p {
+	margin: 0 0 6px;
+}
+
+.sdc-block__help {
+	color: #646970;
+	font-size: 12px;
+	line-height: 1.5;
+}
+
+/* Inspector: repeater rows and the link pair read as one block each. */
+.sdc-block__row {
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	margin-bottom: 8px;
+	padding: 8px;
+	background: #fff;
+}
+
+.sdc-block__row-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 4px;
+	margin-bottom: 4px;
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.sdc-block__row-head span {
+	flex: 1;
+}
+
+.sdc-block__link {
+	margin-bottom: 12px;
+}
+
+.sdc-block__link-label {
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin: 0 0 4px;
+	color: #1e1e1e;
+}

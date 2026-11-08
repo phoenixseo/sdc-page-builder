@@ -69,6 +69,7 @@ require_once SDC_PB_DIR . 'includes/class-sdc-view.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-view-editor.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-admin.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-frontend.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-block.php';
 
 /**
  * Load the plugin's translations.
@@ -102,6 +103,7 @@ function sdc_pb_boot() {
 	Sdc_Schema::init();
 	Sdc_Rest::init();
 	Sdc_Frontend::init();
+	Sdc_Block::init();
 
 	if ( is_admin() ) {
 		Sdc_Editor::init();
