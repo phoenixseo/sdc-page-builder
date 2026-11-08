@@ -52,8 +52,9 @@ class Sdc_View_Editor {
 	 * @param string      $type   Component type; empty on the create form.
 	 * @param array[]     $fields Field definitions, for the generator.
 	 * @param string|null $body   Body to show; null reads it from disk.
+	 * @param bool        $open   Whether the panel starts expanded.
 	 */
-	public static function render( $type, array $fields = array(), $body = null ) {
+	public static function render( $type, array $fields = array(), $body = null, $open = false ) {
 		if ( ! Sdc_View::can_edit( $type ) ) {
 			return;
 		}
@@ -66,7 +67,14 @@ class Sdc_View_Editor {
 		echo esc_html__( 'Ansicht', 'sdc-page-builder' );
 		echo '</label></th><td>';
 
-		echo '<details>';
+		/*
+		 * Expanded when the request says so: after the generator ran, the
+		 * body in this box *is* the answer to the click. Left collapsed, the
+		 * author lands on a form that looks untouched and has to hunt for
+		 * the result. Everywhere else the panel stays shut, so editing
+		 * fields does not start with a screen of PHP.
+		 */
+		printf( '<details%s>', $open ? ' open' : '' );
 
 		printf(
 			'<summary>%s</summary>',

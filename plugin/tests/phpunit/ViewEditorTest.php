@@ -92,6 +92,32 @@ class ViewEditorTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * The panel is shut while fields are being edited.
+	 *
+	 * A screen of PHP at the bottom of every component form is noise; the
+	 * view is the exception people come back to, not the default task.
+	 */
+	public function test_the_panel_starts_collapsed() {
+		$html = $this->panel( 'hero', array() );
+
+		$this->assertStringContainsString( '<details>', $html );
+		$this->assertStringNotContainsString( '<details open>', $html );
+	}
+
+	/**
+	 * After the generator ran, the panel is open.
+	 *
+	 * The body the generator wrote is the answer to the click. Arriving on
+	 * a collapsed panel would hide it again, and the author would have to
+	 * guess whether anything happened.
+	 */
+	public function test_the_panel_opens_after_generating() {
+		$html = $this->panel( 'hero', $this->text_fields(), true );
+
+		$this->assertStringContainsString( '<details open>', $html, 'Das Ergebnis des Generators ist sichtbar.' );
+	}
+
+	/**
 	 * The existing body is what the textarea starts with — otherwise opening
 	 * the panel and saving would blank a view nobody touched.
 	 */
@@ -428,11 +454,12 @@ class ViewEditorTest extends Sdc_TestCase {
 	 *
 	 * @param string  $type   Component type.
 	 * @param array[] $fields Field definitions.
+	 * @param bool    $open   Whether the panel starts expanded.
 	 * @return string HTML.
 	 */
-	private function panel( $type, array $fields ) {
+	private function panel( $type, array $fields, $open = false ) {
 		ob_start();
-		Sdc_View_Editor::render( $type, $fields );
+		Sdc_View_Editor::render( $type, $fields, null, $open );
 		return (string) ob_get_clean();
 	}
 

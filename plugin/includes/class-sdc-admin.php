@@ -760,7 +760,10 @@ class Sdc_Admin {
 		 */
 		$view_fields = json_decode( (string) $values['fields'], true );
 
-		Sdc_View_Editor::render( $type, is_array( $view_fields ) ? $view_fields : array(), $values['view'] );
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display flag only, no data changes.
+		$view_open = isset( $_GET['sdc_view'] ) && '1' === sanitize_key( wp_unslash( $_GET['sdc_view'] ) );
+
+		Sdc_View_Editor::render( $type, is_array( $view_fields ) ? $view_fields : array(), $values['view'], $view_open );
 
 		echo '</table>';
 		submit_button( __( 'Komponente speichern', 'sdc-page-builder' ) );
@@ -1026,7 +1029,40 @@ class Sdc_Admin {
 			self::redirect( 'error', $result->get_error_message() );
 		}
 
-		self::redirect( isset( self::NOTICE_CODES[ $task ] ) ? self::NOTICE_CODES[ $task ] : 'error' );
+		$notice = isset( self::NOTICE_CODES[ $task ] ) ? self::NOTICE_CODES[ $task ] : 'error';
+
+		self::redirect( $notice, '', self::success_args( $task ) );
+	}
+
+	/**
+	 * Where a finished task sends the browser.
+	 *
+	 * An edit goes back to its own form, not to the catalog. The reason is
+	 * the generate button: it produces the view **as the result of this
+	 * request**, so a redirect to the list throws away the one thing the
+	 * click was for — the author would have to page back in and open the
+	 * panel to find out whether the generator did anything.
+	 *
+	 * Create, duplicate and delete have no result of their own on the form,
+	 * so they stay on the catalog where the change is visible.
+	 *
+	 * @param string $task Task name.
+	 * @return array Extra query args; empty for the catalog.
+	 */
+	private static function success_args( $task ) {
+		if ( 'update' !== $task ) {
+			return array();
+		}
+
+		$args = self::edit_args();
+
+		// The generator's output is the reason the author is coming back to
+		// this form, so the panel holding it has to be open on arrival.
+		if ( array() !== $args && Sdc_View_Editor::wants_generate() ) {
+			$args['sdc_view'] = '1';
+		}
+
+		return $args;
 	}
 
 	/**

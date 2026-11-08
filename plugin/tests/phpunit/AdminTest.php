@@ -1127,6 +1127,53 @@ class AdminTest extends Sdc_TestCase {
 		$this->assertStringContainsString( '"label": "Text"', $fields );
 	}
 
+	/**
+	 * A saved edit lands back on its own form, not on the catalog.
+	 *
+	 * This is the difference between the generate button being useful or
+	 * useless: the view it produces is the response to the click. Sending
+	 * the author to the overview hides that response and makes the click
+	 * look like it did nothing, even though the file was written.
+	 */
+	public function test_a_saved_edit_returns_to_its_form() {
+		$type = $this->fresh_type( 'teaser' );
+
+		$_POST = array( 'sdc_type' => $type );
+
+		$this->assertSame(
+			array( 'sdc_edit' => $type ),
+			$this->invoke( 'success_args', 'update' ),
+			'Nach dem Speichern bleibt man in der Komponente.'
+		);
+	}
+
+	/**
+	 * Every other task returns to the catalog.
+	 *
+	 * They put their result where the list shows it — a new, copied or
+	 * deleted component — so a form target would be a detour.
+	 */
+	public function test_other_tasks_return_to_the_catalog() {
+		$_POST = array( 'sdc_type' => 'teaser' );
+
+		foreach ( array( 'create', 'duplicate', 'delete', 'import' ) as $task ) {
+			$this->assertSame( array(), $this->invoke( 'success_args', $task ), $task );
+		}
+	}
+
+	/**
+	 * Without a posted type there is no form to return to.
+	 *
+	 * `edit_args()` is the single place that decides this, so the fallback
+	 * is checked here rather than discovered on a redirect that points at
+	 * an edit screen refusing to render.
+	 */
+	public function test_a_saved_edit_without_a_type_returns_to_the_catalog() {
+		$_POST = array( 'sdc_type' => '' );
+
+		$this->assertSame( array(), $this->invoke( 'success_args', 'update' ) );
+	}
+
 	// Helpers.
 
 	/**
