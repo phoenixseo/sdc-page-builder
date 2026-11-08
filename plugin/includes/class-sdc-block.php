@@ -80,11 +80,11 @@ class Sdc_Block {
 		add_action( 'init', array( __CLASS__, 'register' ) );
 		add_action( 'enqueue_block_editor_assets', array( __CLASS__, 'enqueue_editor_assets' ) );
 
-		// `block_categories_all` is the current filter (5.8+); `block_categories`
-		// is what older WordPress calls instead. Both, or the category would
-		// silently be missing on an older site — with no error to point at.
+		// The plugin requires WordPress 6.4, so `block_categories_all` is the
+		// only filter to register. The pre-5.8 `block_categories` would still
+		// fire — deprecated — and `WP_DEBUG` turns that into a notice on every
+		// admin page.
 		add_filter( 'block_categories_all', array( __CLASS__, 'categories' ) );
-		add_filter( 'block_categories', array( __CLASS__, 'categories' ) );
 
 		// Two hooks, one job: `enqueue_block_assets` fires in the frontend and
 		// inside the editor iframe, `wp_enqueue_scripts` covers a theme that

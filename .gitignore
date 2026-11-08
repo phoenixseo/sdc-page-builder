@@ -19,6 +19,3 @@ test-scf/.wp-env.json
 
 # Recherche-Belege bleiben im Repo, aber nichts Generiertes
 _research/tmp/
-
-# Editor-Test: letzter POST-Body, wird bei jedem Lauf neu geschrieben
-plugin/tests/.editor-test-output.json

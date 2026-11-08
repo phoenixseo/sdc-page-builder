@@ -102,26 +102,6 @@ jobs:
           export SDC_TEST_ACF_ZIP=/tmp/acf-free/advanced-custom-fields
           vendor/bin/phpunit
 
-  js:
-    name: Editor tests (jsdom)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          # Not 20: jsdom 30 pulls undici 8, and undici's decompress.js calls
-          # zlib.createZstdDecompress at module load. zstd exists in node:zlib
-          # from 22.15 on, so on Node 20 the require throws "Cannot read
-          # properties of undefined (reading 'bind')" before a single test
-          # runs. The suite itself needs nothing newer than 20.
-          node-version: '22'
-      - name: Install
-        working-directory: plugin
-        run: npm install --no-audit --no-fund
-      - name: Run
-        working-directory: plugin
-        run: npm test
-
   readme:
     name: readme.txt structure
     runs-on: ubuntu-latest

@@ -68,6 +68,15 @@ class Sdc_Frontend {
 			return $content;
 		}
 
+		/*
+		 * A migrated page carries its components as blocks, and the block
+		 * renderer already prints them from `the_content`. Appending the
+		 * document on top of that would show every component twice.
+		 */
+		if ( Sdc_Migration::is_migrated( $post->ID ) ) {
+			return $content;
+		}
+
 		return $content . self::render_post( $post->ID );
 	}
 
