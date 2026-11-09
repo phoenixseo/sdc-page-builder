@@ -1,6 +1,6 @@
 === SDC Page Builder ===
 Contributors: phoenixseo
-Tags: page builder, components, acf, custom fields, structured data
+Tags: page builder, components, acf, custom fields, blocks
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -8,36 +8,38 @@ Stable tag: 0.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Build pages from reusable components that are defined as field groups and stored as a single JSON document.
+Reusable page components as native blocks: pick one from the inserter, edit its fields in the sidebar, see the real markup in the canvas.
 
 == Description ==
 
-SDC Page Builder turns a page into a list of components. A component is a field group — heading, rich text, repeater, link, image — and the whole page is stored in one JSON document with a format version and a revision history.
+SDC Page Builder turns a page into a list of components. A component is a field group — heading, rich text, repeater, link, image — and every component type is its own block in the block inserter, collected under *SDC components*.
 
-This separates content from markup, which most page builders do not: a page stores which components it uses and what values they hold, never how they look. Change a component's markup and every instance on every page changes with it — no per-page migration, and no page carrying a stale copy of the design.
+The page stores which components it uses and what values they hold, never how they look. Change a component's markup and every instance on every page changes with it — no per-page migration, and no page carrying a stale copy of the design.
 
-A new component type is a *directory*, not a new PHP class. Drop `sdc-components/card/` with a `definition.json` in it and the editor, the save route and the frontend output all handle it, because none of them know about specific types. The file name says nothing about the type — the group key inside it does.
+A new component type is a *directory*, not a new PHP class. Drop `sdc-components/card/` with a `definition.json` in it and the editor, the inserter and the frontend output all handle it, because none of them know about specific types. The file name says nothing about the type — the group key inside it does.
 
 = Who this is for =
 
-Agencies and developers who build the same page patterns repeatedly (hero, FAQ, feature grid, CTA band) and want them as structured content rather than free-form blocks — with the content stored in a shape that can be exported, imported, versioned and rendered by code.
+Agencies and developers who build the same page patterns repeatedly (hero, FAQ, feature grid, CTA band) and want them as structured, typed content rather than free-form blocks — with one place that decides what a component looks like.
 
 = How it works =
 
 * Every component type is a field group with the key prefix `group_sdc_component_`. The plugin reads those groups from Advanced Custom Fields or Secure Custom Fields.
-* The editor renders the fields through the host field plugin, one instance per component, with instance-prefixed input names so two components of one type never overwrite each other.
-* Saving writes one meta row (`_sdc_data`) for the whole page and creates a revision.
-* The frontend appends the rendered components to the post content, escaped, with no editor attributes.
+* Each type becomes a block (`sdc/<type>`) whose attributes are the field values. Because the block renders on the server, the editor canvas shows the same markup a visitor gets — not a placeholder.
+* The fields are edited in the block sidebar, one form per selected component. Clicking a component in the canvas selects it; the sidebar shows its fields.
+* Content lives in `post_content` as ordinary block markup, so revisions, autosaves, trash and the REST content API all work the way they do for any block.
+* Component styles are collected into one inline stylesheet in the head, versioned by content hash, so a page load costs one request fewer and aggressive HTML caching stays correct.
 
 = Features =
 
-* **Component types as JSON schemas** — no PHP class per type. The editor, REST layer and frontend are type-agnostic.
-* **One JSON document per page** — one meta row, a format version, and schema-version strings per component (`faq@1`).
-* **Revisions and history** — restore any stored revision; the current state is snapshotted before it is overwritten.
-* **Import and export** — a JSON file per page, validated on import (unknown type, unknown field, missing required field, broken JSON); a rejected import leaves the document untouched.
-* **Host parity** — runs on Advanced Custom Fields (free) and on Secure Custom Fields, with the same behaviour on both.
-* **Escaped output** — stored values are never treated as HTML; the editor's data attributes do not reach the frontend.
-* **Permission-aware REST routes** — every route checks the capability to edit that specific page.
+* **A block per component type** — each component is separately insertable, searchable by its own name, and distinguishable in the list view.
+* **The category comes first** — *SDC components* sits at the top of the inserter, not somewhere below the core blocks.
+* **Server-rendered** — the canvas shows the real frontend markup, so a layout bug is visible before the page is published.
+* **Component types as JSON schemas** — no PHP class per type. Editor, REST layer and frontend are type-agnostic.
+* **Only the fields its schema defines** — a component accepts exactly its own fields; nothing can be smuggled in as raw HTML by accident.
+* **Escaped output** — stored values are escaped per field type (`esc_html`, `wp_kses_post`, `esc_attr`); the editor's data attributes never reach the frontend.
+* **Permission-aware** — the REST routes check the capability to edit that specific page.
+* **Backend overview** — a catalogue screen lists every component type with its fields and how many pages use it, and refuses to delete a type that is still placed.
 * **i18n-ready** — all strings use the text domain `sdc-page-builder`; a POT file ships in `languages/`.
 * **Your components live in your theme** — drop a folder with a JSON field group (and optionally a `render.php`) into your theme; plugin updates never touch them.
 
@@ -49,6 +51,7 @@ In your theme, one directory per component:
 wp-content/themes/your-theme/sdc-components/hero/
     definition.json                  field group (required)
     render.php                       markup (optional)
+    component.css                    styles (optional)
 ```
 
 The plugin also reads the parent theme and `wp-content/sdc-components/`, so components survive a theme switch when they live in `wp-content`. The `sdc_pb_component_dirs` filter adds other locations.
@@ -59,7 +62,7 @@ Do not add components to the plugin's own `schemas/` directory: it ships the `he
 
 A component whose definition, markup, styles and documentation live in one directory instead of being spread across `templates/`, `css/` and `js/`. The term comes from Drupal, where it has been part of core since 10.3; the idea behind it is Brad Frost's *Atomic Design* (2016, free at atomicdesign.bradfrost.com) and Pattern Lab. One folder per component means one obvious place to look, one thing to copy, and `rm -r` to remove it.
 
-This plugin borrows the folder discipline, not the whole system. Two differences matter: components are siblings in a page's list, so there are no slots for nesting other components inside one; and the plugin attaches no CSS or JS, so styles stay in your theme's asset pipeline. See the repository README for the full mapping.
+This plugin borrows the folder discipline, not the whole system. One difference matters: components are siblings in a page's list, so there are no slots for nesting one component inside another — use the core group block for layout around them.
 
 = Can I control the HTML of a component? =
 
@@ -72,40 +75,42 @@ Without either, the plugin renders generic markup (`div.sdc-component--<type>`, 
 1. Install and activate either [Advanced Custom Fields](https://wordpress.org/plugins/advanced-custom-fields/) or [Secure Custom Fields](https://wordpress.org/plugins/secure-custom-fields/). The plugin does nothing without one of them and says so in the admin.
 2. Upload the `sdc-page-builder` folder to `/wp-content/plugins/`, or install the plugin through the WordPress *Plugins* screen.
 3. Activate the plugin through the *Plugins* screen.
-4. Edit a page. The builder appears below the editor.
+4. Edit a page, open the inserter and pick a component under *SDC components*.
+
+Pages written by a pre-release version of this plugin, which kept components in a meta row instead of in the content, are converted to blocks the first time they are opened in the editor. The meta row stays as a backup; from then on the editor writes blocks.
 
 == Frequently Asked Questions ==
 
 = Does it work without Advanced Custom Fields? =
 
-No. The plugin uses ACF's field API to render inputs. Secure Custom Fields is a drop-in for that API and works the same way. Without either one, the plugin shows an admin notice and stays inert — it does not fatal.
+No. The plugin uses ACF's field API for the field definitions. Secure Custom Fields is a drop-in for that API and works the same way. Without either one, the plugin shows an admin notice and stays inert — it does not fatal.
 
 = Where is the content stored? =
 
-In one post meta row per page, `_sdc_data`, holding `{"v":1,"components":[...]}`. Nothing is written to post content beyond whatever the page already had.
+In the post content, as blocks: one `<!-- wp:sdc/<type> -->` comment per component with its field values as attributes. Nothing is kept in a separate table, which is why native revisions, autosaves and the content API include it.
 
 = Can two components of the same type be on one page? =
 
-Yes. Each instance gets its own id and its own input-name prefix, so they do not collide.
+Yes, as many as you like. Each block is its own instance with its own attributes.
+
+= What about pages from the earlier builder version? =
+
+They are converted to blocks the first time they are opened in the editor. Until then they keep rendering from their stored document, so an update in a quiet moment does not lose a page's content. The conversion is one-way by design: two stores would mean deciding which one wins.
+
+= Does it work with caching plugins? =
+
+Yes. Component styles are inlined once into the head with a hash-based version, so there is no separate stylesheet URL to go stale after an update, and no extra request per page. By the time a page cache sees the markup it is plain HTML.
 
 = What happens if a component type is removed later? =
 
-A stored document can outlive the plugin version that wrote it. An unknown type is skipped and logged on output; the rest of the page still renders. Importing such a document is refused, so nothing is silently dropped on write.
-
-= Does it work with the block editor? =
-
-The builder is its own panel below the editor; it does not add blocks. Both editors can be active, but content written in blocks is not managed by the builder.
-
-= Is the JSON document portable? =
-
-Yes. *Export* produces a JSON file for the page, *Import* accepts it on another page or site of the same component version. Unknown fields and missing required fields are rejected with a reason, and the target document is left unchanged.
+A block can outlive the plugin version that registered it. The editor marks it as unsupported and leaves its saved content alone; the rest of the page still renders. The catalogue screen refuses to delete a type while pages still use it.
 
 == Screenshots ==
 
-1. The builder panel on a page: component list, add-component control, and the save status line.
-2. Editing a component instance, rendered by the host field plugin.
-3. The history panel with stored revisions and the restore control.
-4. The same document rendered in the frontend.
+1. The inserter: *SDC components* at the top, one block per component type.
+2. A component in the canvas, rendered with the real frontend markup.
+3. The selected component's fields in the block sidebar.
+4. The component catalogue in the admin: fields, usage count, and the delete guard.
 
 <!--
 	The four screenshot files (screenshot-1.png … screenshot-4.png) are not part
@@ -119,11 +124,15 @@ Yes. *Export* produces a JSON file for the page, *Import* accepts it on another 
 
 = 0.1.0 =
 * Initial release.
+* One block per component type, registered from the component's JSON definition.
+* A dedicated *SDC components* block category, first in the inserter.
+* Server-side rendering, so the editor canvas shows the frontend markup.
 * Component types defined as JSON schemas; editor, REST and frontend are type-agnostic.
-* Single JSON document per page with format version and revision history.
-* Import and export with validation that refuses partial writes.
+* Field editing in the block sidebar; click a component to select it.
+* One-way conversion of documents from the pre-block version into blocks, with the meta row kept as a backup.
 * Host parity between Advanced Custom Fields (free) and Secure Custom Fields.
-* REST routes for reading, saving, history, restore, import and export, each permission-checked per page.
+* Catalogue screen with per-type usage counts and a delete guard.
+* Inline, hash-versioned component styles for cache-safe delivery.
 * German source strings, POT file, and translation loading on `init`.
 
 == Upgrade Notice ==

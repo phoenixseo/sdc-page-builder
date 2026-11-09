@@ -354,13 +354,16 @@ class Sdc_Field_Editor {
 					'empty'          => __( 'Noch keine Felder. Unten einen Feldtyp wählen und hinzufügen.', 'sdc-page-builder' ),
 					'removeField'    => __( 'Dieses Feld samt Einstellungen entfernen?', 'sdc-page-builder' ),
 					'removeChildren' => __( 'Der neue Typ ist keine Sammlung. Die Unterfelder dieses Feldes werden entfernt. Fortfahren?', 'sdc-page-builder' ),
+					/* translators: %s: field name that is missing */
 					'noName'         => __( 'Jedes Feld braucht einen Namen. Fehlt er bei: %s', 'sdc-page-builder' ),
+					/* translators: %s: field name that occurs twice */
 					'duplicateName'  => __( 'Dieser Feldname kommt doppelt vor: %s', 'sdc-page-builder' ),
 					'pairValue'      => __( 'Wert', 'sdc-page-builder' ),
 					'pairLabel'      => __( 'Beschriftung', 'sdc-page-builder' ),
 					'pairAdd'        => __( 'Möglichkeit hinzufügen', 'sdc-page-builder' ),
 					'nameHint'       => __( 'a–z, 0–9 und _ . Wird aus der Beschriftung gebildet, solange du ihn nicht selbst änderst.', 'sdc-page-builder' ),
 					'jsonUpdated'    => __( 'Das JSON wurde aus den Feldern neu geschrieben.', 'sdc-page-builder' ),
+					/* translators: %s: parser message */
 					'jsonBroken'     => __( 'Das JSON im Textfeld ist fehlerhaft und wurde nicht überschrieben: %s', 'sdc-page-builder' ),
 					'unknownType'    => __( 'Dieser Feldtyp hat hier keine eigenen Einstellungen. Alles, was im JSON steht, bleibt beim Speichern erhalten — ändern lässt er sich nur dort.', 'sdc-page-builder' ),
 				),

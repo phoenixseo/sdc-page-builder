@@ -14,14 +14,22 @@
 class RestTest extends Sdc_TestCase {
 
 	/**
-	 * Every route the editor uses is registered.
+	 * The routes that exist — and the four that were deliberately removed.
+	 *
+	 * `history`, `restore`, `import` and `export` belonged to the old editor
+	 * panel. Blocks are versioned by WordPress' own revisions, so a second
+	 * revision store would be a parallel truth. This asserts they stay gone.
 	 */
-	public function test_expected_routes_are_registered() {
+	public function test_registered_routes_are_the_two_that_have_clients() {
 		$routes = array_keys( rest_get_server()->get_routes() );
 		$ns     = '/' . Sdc_Rest::NAMESPACE_V1;
 
-		foreach ( array( '/pages/(?P<id>\d+)', '/components', '/pages/(?P<id>\d+)/history', '/pages/(?P<id>\d+)/restore', '/pages/(?P<id>\d+)/import', '/pages/(?P<id>\d+)/export' ) as $route ) {
+		foreach ( array( '/pages/(?P<id>\d+)', '/components' ) as $route ) {
 			$this->assertContains( $ns . $route, $routes, "Route $route is not registered" );
+		}
+
+		foreach ( array( '/history', '/restore', '/import', '/export' ) as $removed ) {
+			$this->assertNotContains( $ns . '/pages/(?P<id>\d+)' . $removed, $routes, "Route $removed has no client and should not be registered" );
 		}
 	}
 

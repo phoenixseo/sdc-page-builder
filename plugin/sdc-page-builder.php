@@ -53,7 +53,6 @@ if ( ! function_exists( 'array_is_list' ) ) {
 require_once SDC_PB_DIR . 'includes/class-sdc-field-adapter.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-store.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-schema.php';
-require_once SDC_PB_DIR . 'includes/class-sdc-document.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-rest.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-renderer.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-editor.php';
