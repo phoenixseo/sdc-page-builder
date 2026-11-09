@@ -583,6 +583,181 @@ class AdminTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * A revision copies the page's meta row. Counting meta rows reported one
+	 * page saved sixteen times as sixteen pages with sixteen instances — the
+	 * catalog said "18 Seiten" for a site with two pages using the component,
+	 * and the number looked like a lie because it was one.
+	 */
+	public function test_revisions_do_not_inflate_instance_counts() {
+		$type    = $this->fresh_type( 'callout' );
+		$post_id = self::factory()->post->create( array( 'post_type' => 'page' ) );
+
+		update_post_meta(
+			$post_id,
+			Sdc_Store::META_KEY,
+			array(
+				'v'          => 1,
+				'components' => array(
+					array(
+						'_id'    => 'c_one',
+						'type'   => $type,
+						'schema' => '',
+						'data'   => array(),
+					),
+				),
+			)
+		);
+
+		// Five revisions, each carrying a copy of the same meta row.
+		for ( $i = 0; $i < 5; $i++ ) {
+			wp_save_post_revision( $post_id );
+		}
+
+		delete_transient( Sdc_Admin::INSTANCE_TRANSIENT );
+
+		$counts = $this->invoke( 'instance_counts' );
+
+		$this->assertSame( 1, $counts[ $type ]['pages'] );
+		$this->assertSame( 1, $counts[ $type ]['components'] );
+	}
+
+	/**
+	 * What the catalog counts is placement, and placement is the content.
+	 *
+	 * A component inside a group is placed just as much as one at the top
+	 * level; a walker that read only top-level blocks would undercount and
+	 * then let the component be deleted while it still renders.
+	 */
+	public function test_blocks_are_counted_including_nested_ones() {
+		$type    = $this->fresh_type( 'callout' );
+		$post_id = self::factory()->post->create( array( 'post_type' => 'page' ) );
+
+		$inner = serialize_block(
+			array(
+				'blockName'    => Sdc_Block::PREFIX . $type,
+				'attrs'        => array(),
+				'innerBlocks'  => array(),
+				'innerHTML'    => '',
+				'innerContent' => array(),
+			)
+		);
+
+		$outer = serialize_block(
+			array(
+				'blockName'    => 'core/group',
+				'attrs'        => array(),
+				'innerBlocks'  => array(
+					array(
+						'blockName'    => Sdc_Block::PREFIX . $type,
+						'attrs'        => array(),
+						'innerBlocks'  => array(),
+						'innerHTML'    => '',
+						'innerContent' => array(),
+					),
+				),
+				'innerHTML'    => '<div class="wp-block-group"></div>',
+				// `null` is the slot serialize_block() fills with inner block 0.
+				'innerContent' => array( '<div class="wp-block-group">', null, '</div>' ),
+			)
+		);
+
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_content' => $inner . $outer,
+			)
+		);
+
+		delete_transient( Sdc_Admin::INSTANCE_TRANSIENT );
+
+		$counts = $this->invoke( 'instance_counts' );
+
+		$this->assertSame( 1, $counts[ $type ]['pages'] );
+		$this->assertSame( 2, $counts[ $type ]['components'] );
+	}
+
+	/**
+	 * On a migrated page the document is a backup, not a placement.
+	 *
+	 * Counting the backup kept a component "in use" after the author had
+	 * deleted every block using it, so the delete guard never let go of a
+	 * component nothing placed any more.
+	 */
+	public function test_deleted_blocks_stop_counting_after_migration() {
+		$type    = $this->fresh_type( 'callout' );
+		$post_id = self::factory()->post->create( array( 'post_type' => 'page' ) );
+
+		update_post_meta(
+			$post_id,
+			Sdc_Store::META_KEY,
+			array(
+				'v'          => 1,
+				'components' => array(
+					array(
+						'_id'    => 'c_one',
+						'type'   => $type,
+						'schema' => '',
+						'data'   => array(),
+					),
+				),
+			)
+		);
+
+		// The page is placed, then the author removes the block again.
+		update_post_meta( $post_id, Sdc_Migration::META_KEY, Sdc_Migration::VERSION );
+		wp_update_post(
+			array(
+				'ID'           => $post_id,
+				'post_content' => '<!-- wp:paragraph --><p>Nur Text</p><!-- /wp:paragraph -->',
+			)
+		);
+
+		delete_transient( Sdc_Admin::INSTANCE_TRANSIENT );
+
+		$counts = $this->invoke( 'instance_counts' );
+
+		$this->assertArrayNotHasKey( $type, $counts );
+	}
+
+	/**
+	 * The count says what it counts, in a sentence a human reads.
+	 */
+	public function test_usage_label_spells_out_the_numbers() {
+		$this->assertSame(
+			'nicht platziert',
+			$this->invoke(
+				'usage_label',
+				array(
+					'pages'     => 0,
+					'instances' => 0,
+				)
+			)
+		);
+
+		$this->assertSame(
+			'1 Seite, 1 Instanz',
+			$this->invoke(
+				'usage_label',
+				array(
+					'pages'     => 1,
+					'instances' => 1,
+				)
+			)
+		);
+
+		$this->assertSame(
+			'3 Seiten, 4 Instanzen',
+			$this->invoke(
+				'usage_label',
+				array(
+					'pages'     => 3,
+					'instances' => 4,
+				)
+			)
+		);
+	}
+
+	/**
 	 * The nonce a form carries is one the handler accepts.
 	 *
 	 * Rendering and verifying happen in two places, so they can drift apart

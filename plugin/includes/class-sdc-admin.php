@@ -117,10 +117,24 @@ class Sdc_Admin {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_post_' . self::HOOK, array( __CLASS__, 'handle' ) );
 
-		// Instance counts are derived data: one meta write invalidates them.
+		// Instance counts are derived data. A document changes with a meta
+		// write; placement changes with a post save (the block editor writes
+		// `post_content` and never touches the document meta), and a deleted
+		// or trashed page removes instances without a meta write at all.
 		add_action( 'added_post_meta', array( __CLASS__, 'clear_counts' ), 10, 3 );
 		add_action( 'updated_post_meta', array( __CLASS__, 'clear_counts' ), 10, 3 );
 		add_action( 'deleted_post_meta', array( __CLASS__, 'clear_counts' ), 10, 3 );
+		add_action( 'save_post', array( __CLASS__, 'clear_counts_now' ) );
+		add_action( 'deleted_post', array( __CLASS__, 'clear_counts_now' ) );
+		add_action( 'trashed_post', array( __CLASS__, 'clear_counts_now' ) );
+		add_action( 'untrashed_post', array( __CLASS__, 'clear_counts_now' ) );
+	}
+
+	/**
+	 * Drop the cached counts, whatever changed.
+	 */
+	public static function clear_counts_now() {
+		delete_transient( self::INSTANCE_TRANSIENT );
 	}
 
 	/**
@@ -310,7 +324,7 @@ class Sdc_Admin {
 				esc_html__( 'Felder', 'sdc-page-builder' ),
 				esc_html__( 'Vorlage', 'sdc-page-builder' ),
 				esc_html__( 'Ablage', 'sdc-page-builder' ),
-				esc_html__( 'Instanzen', 'sdc-page-builder' ),
+				esc_html__( 'Verwendung', 'sdc-page-builder' ),
 				esc_html__( 'Aktionen', 'sdc-page-builder' ),
 			) as $heading
 		) {
@@ -422,14 +436,7 @@ class Sdc_Admin {
 		// Usage.
 		printf(
 			'<td>%s</td>',
-			esc_html(
-				sprintf(
-					/* translators: 1: number of pages, 2: number of instances. */
-					__( '%1$d Seiten, %2$d Instanzen', 'sdc-page-builder' ),
-					(int) $row['pages'],
-					(int) $row['instances']
-				)
-			)
+			esc_html( self::usage_label( $row ) )
 		);
 
 		echo '<td>';
@@ -2095,11 +2102,22 @@ class Sdc_Admin {
 	}
 
 	/**
-	 * Per-type usage counts across all stored documents.
+	 * Where and how often each component is actually placed.
 	 *
-	 * One query, not one per page: the document is a JSON string in a single
-	 * meta row, so counting means decoding, and decoding everything on every
-	 * page load would grow with the site. Cached until a document changes.
+	 * Placement is the content of a page — blocks now, the stored document
+	 * only for a page the migration has not reached. Reading `_sdc_data` for
+	 * both had two consequences this fixes:
+	 *
+	 * - Revisions carry a copy of the same meta row. One page saved sixteen
+	 *   times reported sixteen pages with sixteen instances; the catalog said
+	 *   "18 Seiten" for a site with two pages carrying the component.
+	 * - On a migrated page the document is a backup. Counting it kept a
+	 *   component "in use" after the author had deleted every block using it,
+	 *   so the delete guard never let go of a component nothing placed.
+	 *
+	 * One query for the post ids, one meta read per page (answered by the
+	 * object cache), and the result sits in a transient until a post or a
+	 * document changes.
 	 *
 	 * @return array[] Type => array( 'pages' => int, 'components' => int ).
 	 */
@@ -2110,45 +2128,25 @@ class Sdc_Admin {
 			return $cached;
 		}
 
-		global $wpdb;
-
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One aggregate read over the meta table; the result is cached in a transient.
-		$rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT post_id, meta_value FROM {$wpdb->postmeta} WHERE meta_key = %s",
-				Sdc_Store::META_KEY
+		$post_ids = get_posts(
+			array(
+				'post_type'   => Sdc_Editor::post_types(),
+				// No revisions, no autosaves, no trash: all three either copy
+				// a page or no longer render, and each would count as one.
+				'post_status' => array( 'publish', 'future', 'draft', 'pending', 'private' ),
+				'numberposts' => -1,
+				'fields'      => 'ids',
+				'orderby'     => 'none',
 			)
 		);
 
 		$counts = array();
 		$pages  = array();
 
-		foreach ( (array) $rows as $row ) {
-			/*
-			 * Stored documents are PHP arrays (one meta row, serialized by
-			 * update_post_meta); older ones may be a JSON string. Only
-			 * json_decode would find neither and report every component as
-			 * unused, which would silently disable the in-use guard below.
-			 */
-			$document = maybe_unserialize( $row->meta_value );
-
-			if ( is_string( $document ) ) {
-				$document = json_decode( $document, true );
-			}
-
-			if ( ! is_array( $document ) || empty( $document['components'] ) ) {
-				continue;
-			}
-
-			foreach ( (array) $document['components'] as $component ) {
-				if ( ! is_array( $component ) || empty( $component['type'] ) ) {
-					continue;
-				}
-
-				$type = (string) $component['type'];
-
-				$counts[ $type ]['components']         = isset( $counts[ $type ]['components'] ) ? $counts[ $type ]['components'] + 1 : 1;
-				$pages[ $type ][ (int) $row->post_id ] = true;
+		foreach ( (array) $post_ids as $post_id ) {
+			foreach ( self::types_in_post( (int) $post_id ) as $type ) {
+				$counts[ $type ]['components']    = isset( $counts[ $type ]['components'] ) ? $counts[ $type ]['components'] + 1 : 1;
+				$pages[ $type ][ (int) $post_id ] = true;
 			}
 		}
 
@@ -2163,6 +2161,143 @@ class Sdc_Admin {
 		set_transient( self::INSTANCE_TRANSIENT, $counts, 5 * MINUTE_IN_SECONDS );
 
 		return $counts;
+	}
+
+	/**
+	 * Component types one post shows, one entry per instance.
+	 *
+	 * Public because it is the answer to "may this component be deleted" and
+	 * the same question a test asks.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string[] Types in placement order.
+	 */
+	public static function types_in_post( $post_id ) {
+		$post_id = (int) $post_id;
+		$post    = get_post( $post_id );
+
+		if ( ! $post ) {
+			return array();
+		}
+
+		$types = self::types_in_content( (string) $post->post_content );
+
+		/*
+		 * The document is the fallback only while the page has not been
+		 * migrated; after that it is a backup. A component the author deleted
+		 * from the canvas has to stop counting, or nothing is ever deletable.
+		 */
+		if ( empty( $types ) && ! Sdc_Migration::is_migrated( $post_id ) ) {
+			$types = self::types_in_document( $post_id );
+		}
+
+		return $types;
+	}
+
+	/**
+	 * Component types in block content.
+	 *
+	 * Walks `innerBlocks` as well: a component inside a column or a group is
+	 * placed just the same. The old `sdc/component` block names its type in an
+	 * attribute instead of the block name.
+	 *
+	 * @param string $content Post content.
+	 * @return string[]
+	 */
+	private static function types_in_content( $content ) {
+		if ( ! Sdc_Migration::has_blocks( (string) $content ) ) {
+			return array();
+		}
+
+		return self::walk_blocks( parse_blocks( (string) $content ) );
+	}
+
+	/**
+	 * Collect component types from parsed blocks.
+	 *
+	 * @param array[] $blocks Parsed blocks.
+	 * @return string[]
+	 */
+	private static function walk_blocks( array $blocks ) {
+		$types = array();
+
+		foreach ( $blocks as $block ) {
+			if ( ! is_array( $block ) ) {
+				continue;
+			}
+
+			$name = isset( $block['blockName'] ) ? (string) $block['blockName'] : '';
+
+			if ( Sdc_Block::LEGACY === $name ) {
+				$legacy = isset( $block['attrs']['type'] ) ? (string) $block['attrs']['type'] : '';
+
+				if ( '' !== $legacy ) {
+					$types[] = $legacy;
+				}
+			} elseif ( 0 === strpos( $name, Sdc_Block::PREFIX ) ) {
+				$types[] = substr( $name, strlen( Sdc_Block::PREFIX ) );
+			}
+
+			if ( ! empty( $block['innerBlocks'] ) && is_array( $block['innerBlocks'] ) ) {
+				$types = array_merge( $types, self::walk_blocks( $block['innerBlocks'] ) );
+			}
+		}
+
+		return $types;
+	}
+
+	/**
+	 * Component types in a post's stored document.
+	 *
+	 * Both shapes are read: a PHP array in one meta row (how `Sdc_Store`
+	 * writes) and an older JSON string. A counter that understood only one of
+	 * them reported zero and silently disabled the in-use guard.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string[]
+	 */
+	private static function types_in_document( $post_id ) {
+		$document = Sdc_Store::get_data( (int) $post_id );
+
+		if ( empty( $document['components'] ) || ! is_array( $document['components'] ) ) {
+			return array();
+		}
+
+		$types = array();
+
+		foreach ( $document['components'] as $component ) {
+			if ( is_array( $component ) && ! empty( $component['type'] ) ) {
+				$types[] = (string) $component['type'];
+			}
+		}
+
+		return $types;
+	}
+
+	/**
+	 * How a usage count reads to a human.
+	 *
+	 * "3 Seiten, 4 Instanzen" is a claim about placement, so the wording has
+	 * to match what is counted — a component placed twice on one page is one
+	 * page and two instances.
+	 *
+	 * @param array $row Row with 'pages' and 'instances'.
+	 * @return string
+	 */
+	private static function usage_label( array $row ) {
+		$pages     = isset( $row['pages'] ) ? (int) $row['pages'] : 0;
+		$instances = isset( $row['instances'] ) ? (int) $row['instances'] : 0;
+
+		if ( $pages < 1 || $instances < 1 ) {
+			return esc_html__( 'nicht platziert', 'sdc-page-builder' );
+		}
+
+		return sprintf(
+			/* translators: 1: number of pages, 2: number of placements on those pages. */
+			_n( '%1$d Seite, %2$d Instanz', '%1$d Seiten, %2$d Instanzen', $instances, 'sdc-page-builder' ),
+			$pages,
+			$instances
+		);
 	}
 
 	/**
