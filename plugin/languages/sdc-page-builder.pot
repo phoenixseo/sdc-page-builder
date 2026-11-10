@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-09T14:01:43+00:00\n"
+"POT-Creation-Date: 2026-11-10T10:31:46+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: sdc-page-builder\n"
@@ -26,7 +26,7 @@ msgstr ""
 
 #. Description of the plugin
 #: sdc-page-builder.php
-msgid "Komponentenbasierter Page-Builder für WordPress, der ACF-Felder und Secure Custom Fields als Bausteine nutzt. Speichert Seiten als ein JSON-Dokument mit Revisionen und Schema-Versionierung."
+msgid "Komponentenbasierter Page Builder: ACF- oder SCF-Felder als Bausteine, ein Block pro Komponententyp, im Editor serverseitig gerendert."
 msgstr ""
 
 #. Author of the plugin
@@ -555,7 +555,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/class-sdc-block.php:239
-#: assets/block.js:713
+#: assets/block.js:968
 msgid "SDC-Komponente (alt)"
 msgstr ""
 
@@ -570,7 +570,7 @@ msgid "%s: noch keine Inhalte."
 msgstr ""
 
 #: includes/class-sdc-block.php:360
-#: assets/block.js:560
+#: assets/block.js:815
 msgid "Werte rechts in der Seitenleiste eintragen."
 msgstr ""
 
@@ -621,7 +621,8 @@ msgid "Unterfelder"
 msgstr ""
 
 #: includes/class-sdc-field-editor.php:349
-#: assets/block.js:402
+#: assets/block.js:410
+#: assets/block.js:613
 msgid "Entfernen"
 msgstr ""
 
@@ -712,12 +713,12 @@ msgstr ""
 msgid "Feldtyp für das neue Feld"
 msgstr ""
 
-#: includes/class-sdc-frontend.php:578
+#: includes/class-sdc-frontend.php:621
 #: includes/class-sdc-view.php:884
 msgid "Ja"
 msgstr ""
 
-#: includes/class-sdc-frontend.php:578
+#: includes/class-sdc-frontend.php:621
 msgid "Nein"
 msgstr ""
 
@@ -725,12 +726,13 @@ msgstr ""
 msgid "SDC: Komponenten aus der Metabox in Blöcke übernommen."
 msgstr ""
 
-#: includes/class-sdc-renderer.php:171
-#: assets/block.js:428
+#: includes/class-sdc-renderer.php:177
+#: assets/block.js:436
+#: assets/block.js:650
 msgid "Zeile hinzufügen"
 msgstr ""
 
-#: includes/class-sdc-renderer.php:204
+#: includes/class-sdc-renderer.php:271
 msgid "Zeile entfernen"
 msgstr ""
 
@@ -896,34 +898,48 @@ msgstr ""
 msgid "SDC Page Builder benötigt Advanced Custom Fields oder Secure Custom Fields. Bitte eines der beiden Plugins aktivieren."
 msgstr ""
 
-#: assets/block.js:233
+#: assets/block.js:235
+#: assets/block.js:569
 msgid "— bitte wählen —"
 msgstr ""
 
-#: assets/block.js:311
+#: assets/block.js:319
 msgid "Linktext"
 msgstr ""
 
-#: assets/block.js:318
+#: assets/block.js:326
 msgid "Ziel (URL)"
 msgstr ""
 
-#: assets/block.js:538
+#: assets/block.js:565
+msgid "Diese Zeile hat kein Layout. Es wird nichts angezeigt."
+msgstr ""
+
+#: assets/block.js:567
+#: assets/block.js:616
+msgid "Layout"
+msgstr ""
+
+#: assets/block.js:645
+msgid "Dieses Feld hat keine Layouts."
+msgstr ""
+
+#: assets/block.js:793
 msgid "ServerSideRender fehlt — Vorschau nicht verfügbar."
 msgstr ""
 
-#: assets/block.js:559
+#: assets/block.js:814
 msgid "noch keine Inhalte."
 msgstr ""
 
-#: assets/block.js:638
+#: assets/block.js:893
 msgid "Diese Komponente gibt es auf dieser Seite nicht (mehr)."
 msgstr ""
 
-#: assets/block.js:692
+#: assets/block.js:947
 msgid "Komponente aus dem SDC-Baukasten."
 msgstr ""
 
-#: assets/block.js:714
+#: assets/block.js:969
 msgid "Komponente aus einer früheren Fassung."
 msgstr ""

@@ -476,11 +476,11 @@ class Sdc_Frontend {
 		}
 
 		$rows = is_array( $value ) ? array_values( $value ) : array();
-		$sub  = isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ? $field['sub_fields'] : array();
 
 		$html = '';
 		foreach ( $rows as $row ) {
 			$row  = is_array( $row ) ? $row : array();
+			$sub  = self::row_fields( $field, $row );
 			$body = self::render_fields( $sub, $row, $depth + 1 );
 
 			if ( '' === trim( wp_strip_all_tags( $body ) ) ) {
@@ -495,6 +495,49 @@ class Sdc_Frontend {
 		}
 
 		return '<div class="sdc-list sdc-list--' . esc_attr( self::slug( $field['name'] ) ) . '">' . $html . '</div>';
+	}
+
+	/**
+	 * The sub-fields one row is rendered with.
+	 *
+	 * A repeater has one set for every row. `flexible_content` has one set per
+	 * layout, and the row names its layout in `acf_fc_layout` — reading the
+	 * field's own `sub_fields` there yields nothing, so every row rendered
+	 * empty and was dropped as an empty row.
+	 *
+	 * @param array $field Container definition.
+	 * @param array $row   Row values.
+	 * @return array[] Sub-fields; empty when the layout is unknown.
+	 */
+	private static function row_fields( array $field, array $row ) {
+		$type = isset( $field['type'] ) ? (string) $field['type'] : '';
+
+		if ( 'flexible_content' !== $type ) {
+			return isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ? $field['sub_fields'] : array();
+		}
+
+		$layout_name = '';
+
+		foreach ( array( 'acf_fc_layout', '_sdc_layout' ) as $key ) {
+			if ( isset( $row[ $key ] ) && is_scalar( $row[ $key ] ) && '' !== (string) $row[ $key ] ) {
+				$layout_name = (string) $row[ $key ];
+				break;
+			}
+		}
+
+		if ( '' === $layout_name ) {
+			return array();
+		}
+
+		$layouts = isset( $field['layouts'] ) && is_array( $field['layouts'] ) ? $field['layouts'] : array();
+
+		foreach ( $layouts as $layout ) {
+			if ( is_array( $layout ) && isset( $layout['name'] ) && $layout_name === (string) $layout['name'] ) {
+				return isset( $layout['sub_fields'] ) && is_array( $layout['sub_fields'] ) ? $layout['sub_fields'] : array();
+			}
+		}
+
+		return array();
 	}
 
 	/**

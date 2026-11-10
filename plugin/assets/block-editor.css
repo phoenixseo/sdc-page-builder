@@ -57,6 +57,17 @@
 	background: #fff;
 }
 
+/*
+ * A group and a flexible field hold controls of their own. An indent, not a
+ * border: the sidebar is narrow, and nested boxes cost width the inputs need.
+ */
+.sdc-block__group,
+.sdc-block__flexible {
+	border-left: 2px solid #dcdcde;
+	padding-left: 8px;
+	margin-bottom: 8px;
+}
+
 .sdc-block__row-head {
 	display: flex;
 	align-items: center;

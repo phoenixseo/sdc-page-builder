@@ -267,6 +267,12 @@
 			case 'repeater':
 				return repeaterControl( field, value, commit, key );
 
+			case 'group':
+				return groupControl( field, value, commit, key );
+
+			case 'flexible_content':
+				return flexibleContentControl( field, value, commit, key );
+
 			default:
 				// text, email, url, image (as attachment ID), and every type
 				// without a dedicated control: a plain text input beats a
@@ -429,6 +435,221 @@
 				{ variant: 'secondary', onClick: add },
 				field.button_label || __( 'Zeile hinzufügen', 'sdc-page-builder' )
 			)
+		);
+	}
+
+	/**
+	 * A group: a fixed set of sub-fields stored under one key.
+	 *
+	 * ACF keeps a group as an object keyed by sub-field name. Without a
+	 * control of its own the group fell through to a text input, which wrote a
+	 * string where the renderer reads a row — the stored values were replaced,
+	 * not edited. So this writes an object, always.
+	 *
+	 * @param {Object}   field  Field definition.
+	 * @param {*}        value  Current values.
+	 * @param {Function} commit Setter.
+	 * @param {string}   key    React key.
+	 * @return {Object} Element.
+	 */
+	function groupControl( field, value, commit, key ) {
+		var current = value && typeof value === 'object' && ! Array.isArray( value ) ? value : {};
+		var subFields = field.sub_fields || [];
+
+		function set( name, next ) {
+			var merged = Object.assign( {}, current );
+			merged[ name ] = next;
+			commit( merged );
+		}
+
+		return el(
+			'div',
+			{ key: key, className: 'sdc-block__group', 'data-sdc-field': field.name },
+			el( 'p', { className: 'sdc-block__link-label' }, field.label ),
+			field.instructions ? el( 'p', { className: 'sdc-block__help' }, field.instructions ) : null,
+			subFields.map( function ( sub ) {
+				return control(
+					sub,
+					current[ sub.name ],
+					function ( next ) {
+						set( sub.name, next );
+					},
+					sub.name
+				);
+			} )
+		);
+	}
+
+	/**
+	 * A flexible content field: rows whose fields depend on their layout.
+	 *
+	 * The layout is part of the row's value, not of the field: ACF stores it
+	 * as `acf_fc_layout`, and the renderer picks the sub-fields by that key. A
+	 * row that does not carry it renders empty on the server, so the control
+	 * always writes it — on creation, and again whenever the author switches
+	 * the layout.
+	 *
+	 * Rows keep their values when the layout changes: switching back must not
+	 * cost the work already typed, and the renderer simply ignores keys the
+	 * new layout does not declare.
+	 *
+	 * @param {Object}   field  Field definition.
+	 * @param {*}        value  Current rows.
+	 * @param {Function} commit Setter.
+	 * @param {string}   key    React key.
+	 * @return {Object} Element.
+	 */
+	function flexibleContentControl( field, value, commit, key ) {
+		var rows = Array.isArray( value ) ? value : [];
+		var layouts = field.layouts || [];
+
+		function layoutFor( name ) {
+			var i;
+
+			for ( i = 0; i < layouts.length; i++ ) {
+				if ( layouts[ i ].name === name ) {
+					return layouts[ i ];
+				}
+			}
+
+			return null;
+		}
+
+		function add() {
+			if ( ! layouts.length ) {
+				return;
+			}
+
+			// A blank row still names its layout, otherwise the server has
+			// no fields to render for it and silently drops the row.
+			var blank = { acf_fc_layout: layouts[ 0 ].name };
+
+			( layouts[ 0 ].sub_fields || [] ).forEach( function ( sub ) {
+				blank[ sub.name ] = '';
+			} );
+
+			commit( rows.concat( [ blank ] ) );
+		}
+
+		function remove( index ) {
+			commit( rows.filter( function ( row, position ) {
+				return position !== index;
+			} ) );
+		}
+
+		function move( index, offset ) {
+			var target = index + offset;
+
+			if ( target < 0 || target >= rows.length ) {
+				return;
+			}
+
+			var next = rows.slice();
+			var moved = next.splice( index, 1 )[ 0 ];
+			next.splice( target, 0, moved );
+			commit( next );
+		}
+
+		var items = rows.map( function ( row, index ) {
+			var current = row && typeof row === 'object' ? row : {};
+			var layout = layoutFor( current.acf_fc_layout );
+			var options = layouts.map( function ( entry ) {
+				return { value: entry.name, label: entry.label || entry.name };
+			} );
+
+			if ( ! layout ) {
+				return el(
+					'div',
+					{ key: 'row-' + index, className: 'sdc-block__row' },
+					el( 'div', { className: 'sdc-block__row-head' }, el( 'span', null, field.label + ' ' + ( index + 1 ) ) ),
+					el( 'p', { className: 'sdc-block__help' }, __( 'Diese Zeile hat kein Layout. Es wird nichts angezeigt.', 'sdc-page-builder' ) ),
+					el( SelectControl, {
+						label: __( 'Layout', 'sdc-page-builder' ),
+						value: '',
+						options: [ { value: '', label: __( '— bitte wählen —', 'sdc-page-builder' ) } ].concat( options ),
+						onChange: function ( next ) {
+							if ( ! next ) {
+								return;
+							}
+
+							var merged = Object.assign( {}, current );
+							merged.acf_fc_layout = next;
+							replaceRow( rows, commit, index, merged );
+						},
+					} )
+				);
+			}
+
+			return el(
+				'div',
+				{ key: 'row-' + index, className: 'sdc-block__row' },
+				el(
+					'div',
+					{ className: 'sdc-block__row-head' },
+					el( 'span', null, field.label + ' ' + ( index + 1 ) ),
+					el( Button, {
+						isSmall: true,
+						variant: 'tertiary',
+						disabled: index === 0,
+						onClick: function () {
+							move( index, -1 );
+						},
+					}, '↑' ),
+					el( Button, {
+						isSmall: true,
+						variant: 'tertiary',
+						disabled: index === rows.length - 1,
+						onClick: function () {
+							move( index, 1 );
+						},
+					}, '↓' ),
+					el( Button, {
+						isSmall: true,
+						isDestructive: true,
+						variant: 'tertiary',
+						onClick: function () {
+							remove( index );
+						},
+					}, __( 'Entfernen', 'sdc-page-builder' ) )
+				),
+				el( SelectControl, {
+					label: __( 'Layout', 'sdc-page-builder' ),
+					value: layout.name,
+					options: options,
+					onChange: function ( next ) {
+						var merged = Object.assign( {}, current );
+						merged.acf_fc_layout = next;
+						replaceRow( rows, commit, index, merged );
+					},
+				} ),
+				( layout.sub_fields || [] ).map( function ( sub ) {
+					return control(
+						sub,
+						current[ sub.name ],
+						function ( next ) {
+							var merged = Object.assign( {}, current );
+							merged[ sub.name ] = next;
+							replaceRow( rows, commit, index, merged );
+						},
+						sub.name
+					);
+				} )
+			);
+		} );
+
+		return el(
+			'div',
+			{ key: key, className: 'sdc-block__flexible', 'data-sdc-field': field.name },
+			el( 'p', { className: 'sdc-block__link-label' }, field.label ),
+			field.instructions ? el( 'p', { className: 'sdc-block__help' }, field.instructions ) : null,
+			layouts.length ? items : el( 'p', { className: 'sdc-block__help' }, __( 'Dieses Feld hat keine Layouts.', 'sdc-page-builder' ) ),
+			layouts.length
+				? el(
+					Button,
+					{ variant: 'secondary', onClick: add },
+					field.button_label || __( 'Zeile hinzufügen', 'sdc-page-builder' )
+				)
+				: null
 		);
 	}
 

@@ -413,7 +413,8 @@ class Sdc_Block {
 	 * Shape per component: `label`, `description`, `icon`, `fields[]`. A field
 	 * carries the attributes that decide its control: `type`, `label`, `name`,
 	 * `required`, `instructions`, plus `choices` for `select`, `min`/`max`/
-	 * `step` for `range`, and `sub_fields` for `repeater`.
+	 * `step` for `range`, `sub_fields` for `repeater` and `group`, and
+	 * `layouts` for `flexible_content`.
 	 *
 	 * Built from the raw host definitions (`acf_get_fields()`), not from
 	 * `Sdc_Schema::fields()`: the normalized form drops `sub_fields`, and a
@@ -469,6 +470,16 @@ class Sdc_Block {
 				$entry['sub_fields'] = self::fields_for_js( $field['sub_fields'] );
 			}
 
+			/*
+			 * `flexible_content` has no `sub_fields` of its own: its fields sit
+			 * inside each layout. Without the layouts the inspector knew a
+			 * field name and nothing else — it fell through to a text input
+			 * that wrote a string where the renderer expects rows.
+			 */
+			if ( 'flexible_content' === $entry['type'] && ! empty( $field['layouts'] ) && is_array( $field['layouts'] ) ) {
+				$entry['layouts'] = self::layouts_for_js( $field['layouts'] );
+			}
+
 			if ( ! empty( $field['choices'] ) && is_array( $field['choices'] ) ) {
 				$entry['choices'] = array();
 				foreach ( $field['choices'] as $value => $label ) {
@@ -486,6 +497,36 @@ class Sdc_Block {
 			}
 
 			$out[] = $entry;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Reduce a `flexible_content` field's layouts to what a control needs.
+	 *
+	 * A layout is a small component: a name to store, a label to pick it by,
+	 * and its own fields. Hosts key the list by layout name; the inspector
+	 * wants a list, so the key is dropped after the name is read.
+	 *
+	 * @param array $layouts Raw layout definitions.
+	 * @return array[]
+	 */
+	private static function layouts_for_js( array $layouts ) {
+		$out = array();
+
+		foreach ( $layouts as $layout ) {
+			if ( ! is_array( $layout ) || empty( $layout['name'] ) ) {
+				continue;
+			}
+
+			$out[] = array(
+				'name'       => (string) $layout['name'],
+				'label'      => isset( $layout['label'] ) ? wp_strip_all_tags( (string) $layout['label'] ) : (string) $layout['name'],
+				'sub_fields' => self::fields_for_js(
+					isset( $layout['sub_fields'] ) && is_array( $layout['sub_fields'] ) ? $layout['sub_fields'] : array()
+				),
+			);
 		}
 
 		return $out;

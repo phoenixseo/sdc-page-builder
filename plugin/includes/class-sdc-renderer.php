@@ -141,7 +141,6 @@ class Sdc_Renderer {
 		}
 
 		$rows = is_array( $value ) ? array_values( $value ) : array();
-		$sub  = isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ? $field['sub_fields'] : array();
 		$key  = isset( $field['key'] ) ? (string) $field['key'] : (string) $field['name'];
 
 		$out = sprintf(
@@ -157,13 +156,20 @@ class Sdc_Renderer {
 		$row_prefix_base = $prefix . '[' . $key . ']';
 
 		foreach ( $rows as $index => $row ) {
-			$out .= self::render_row( $sub, (array) $row, $row_prefix_base . '[' . $index . ']', $depth + 1, $index );
+			$row  = (array) $row;
+			$out .= self::render_row( self::row_fields( $field, $row ), $row, $row_prefix_base . '[' . $index . ']', $depth + 1, $index );
 		}
 
 		// Template row for the client-side "add" action, never submitted as-is.
+		// A flexible field adds its first layout: the browser switches layouts
+		// afterwards, and a template without one would have no fields at all.
+		$template_sub = ! empty( $field['sub_fields'] ) && is_array( $field['sub_fields'] )
+			? $field['sub_fields']
+			: self::row_fields( $field, array( 'acf_fc_layout' => self::first_layout( $field ) ) );
+
 		$out .= sprintf(
 			'<template data-sdc-row-template>%s</template>',
-			self::render_row( $sub, array(), $row_prefix_base . '[__i__]', $depth + 1, '__i__' )
+			self::render_row( $template_sub, array(), $row_prefix_base . '[__i__]', $depth + 1, '__i__' )
 		);
 
 		$out .= '</div>';
@@ -173,6 +179,67 @@ class Sdc_Renderer {
 		$out .= '</div>';
 
 		return $out;
+	}
+
+	/**
+	 * The sub-fields one row is rendered with.
+	 *
+	 * A repeater has one set for every row. `flexible_content` has one set per
+	 * layout, and the row names its layout in `acf_fc_layout` — the field's own
+	 * `sub_fields` is empty there, which used to render every flexible row
+	 * without inputs.
+	 *
+	 * @param array $field Container definition.
+	 * @param array $row   Row values.
+	 * @return array[] Sub-fields; empty when the layout is unknown.
+	 */
+	private static function row_fields( array $field, array $row ) {
+		$type = isset( $field['type'] ) ? (string) $field['type'] : '';
+
+		if ( 'flexible_content' !== $type ) {
+			return isset( $field['sub_fields'] ) && is_array( $field['sub_fields'] ) ? $field['sub_fields'] : array();
+		}
+
+		$layout_name = '';
+
+		foreach ( array( 'acf_fc_layout', '_sdc_layout' ) as $name ) {
+			if ( isset( $row[ $name ] ) && is_scalar( $row[ $name ] ) && '' !== (string) $row[ $name ] ) {
+				$layout_name = (string) $row[ $name ];
+				break;
+			}
+		}
+
+		if ( '' === $layout_name ) {
+			return array();
+		}
+
+		$layouts = isset( $field['layouts'] ) && is_array( $field['layouts'] ) ? $field['layouts'] : array();
+
+		foreach ( $layouts as $layout ) {
+			if ( is_array( $layout ) && isset( $layout['name'] ) && $layout_name === (string) $layout['name'] ) {
+				return isset( $layout['sub_fields'] ) && is_array( $layout['sub_fields'] ) ? $layout['sub_fields'] : array();
+			}
+		}
+
+		return array();
+	}
+
+	/**
+	 * Name of a flexible field's first layout, empty when it has none.
+	 *
+	 * @param array $field Container definition.
+	 * @return string
+	 */
+	private static function first_layout( array $field ) {
+		$layouts = isset( $field['layouts'] ) && is_array( $field['layouts'] ) ? $field['layouts'] : array();
+
+		foreach ( $layouts as $layout ) {
+			if ( is_array( $layout ) && ! empty( $layout['name'] ) ) {
+				return (string) $layout['name'];
+			}
+		}
+
+		return '';
 	}
 
 	/**
