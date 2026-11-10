@@ -20,7 +20,9 @@
  *
  * 3. The preview renders when the block is on screen or selected, not before.
  *    `ServerSideRender` is a REST round trip per block; a page with twelve
- *    components would otherwise fire twelve requests on load.
+ *    components would otherwise fire twelve requests on load. Edits are
+ *    debounced on top of that: one request when typing pauses, not one per
+ *    keystroke.
  */
 ( function () {
 	'use strict';
@@ -487,8 +489,9 @@
 	/**
 	 * The canvas preview.
 	 *
-	 * Mounts the server render once the block is on screen or selected. Before
-	 * that it reserves a line of height, so the block is reachable and the
+	 * Mounts the server render once the block is on screen or selected, and
+	 * re-requests it only after the attributes have stopped changing. Before
+	 * mounting it reserves a line of height, so the block is reachable and the
 	 * observer fires.
 	 *
 	 * @param {Object} props      Block props.
@@ -501,6 +504,37 @@
 		var isMounted = mounted[ 0 ];
 		var setMounted = mounted[ 1 ];
 		var ref = useRef( null );
+
+		/*
+		 * The preview is a REST round trip and `ServerSideRender` fires one per
+		 * attribute change: measured, twelve fast keystrokes produced five
+		 * requests, and each of them renders the whole component server-side.
+		 * Holding the attributes that go into the request until typing pauses
+		 * turns a typed word into one round trip instead of one per character.
+		 * The canvas keeps the previous markup until then, so nothing blinks.
+		 */
+		var snapshot = useState( {
+			signature: JSON.stringify( props.attributes ),
+			attributes: props.attributes,
+		} );
+		var shown = snapshot[ 0 ];
+		var setShown = snapshot[ 1 ];
+		var signature = JSON.stringify( props.attributes );
+		var deferred = signature !== shown.signature;
+
+		useEffect( function () {
+			if ( ! deferred ) {
+				return undefined;
+			}
+
+			var timer = window.setTimeout( function () {
+				setShown( { signature: signature, attributes: props.attributes } );
+			}, 300 );
+
+			return function () {
+				window.clearTimeout( timer );
+			};
+		}, [ deferred, signature ] );
 
 		var selected = useSelect( function ( select ) {
 			return select( 'core/block-editor' ).isBlockSelected( props.clientId );
@@ -551,7 +585,7 @@
 			{ ref: ref },
 			el( ServerSideRender, {
 				block: name,
-				attributes: props.attributes,
+				attributes: shown.attributes,
 				EmptyResponsePlaceholder: function () {
 					return el(
 						'div',
