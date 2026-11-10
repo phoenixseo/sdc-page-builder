@@ -23,6 +23,12 @@
  *    components would otherwise fire twelve requests on load. Edits are
  *    debounced on top of that: one request when typing pauses, not one per
  *    keystroke.
+ *
+ * The row mutations — add, layout switch, move, remove, field value — live in
+ * `assets/inspector-rows.js`, enqueued before this file. They are pure
+ * functions there, so node can run them without a browser; a row that loses
+ * `acf_fc_layout` renders empty on the server and is dropped, which is too
+ * quiet a failure to leave untested.
  */
 ( function () {
 	'use strict';
@@ -34,6 +40,18 @@
 	// The slug the server registered the category under, so both sides cannot
 	// drift apart on a typo the inserter would answer with an empty category.
 	var category = config.category || 'sdc-components';
+
+	/*
+	 * Row edits live in `assets/inspector-rows.js`: pure functions, so they can
+	 * be run in node without a browser. Missing means the enqueue order broke,
+	 * and a second copy of the logic here would be the silent fallback that
+	 * drifts — so this is a hard error, not a catch.
+	 */
+	var rowsApi = window.SDCBlockRows;
+
+	if ( ! rowsApi || typeof rowsApi.setLayout !== 'function' ) {
+		throw new Error( 'SDC-Block: assets/inspector-rows.js fehlt (window.SDCBlockRows).' );
+	}
 
 	if ( ! window.wp || ! wp.blocks || ! wp.blocks.registerBlockType || ! wp.element ) {
 		return;
@@ -71,20 +89,6 @@
 	function withValue( data, commit, name, value ) {
 		var next = Object.assign( {}, data );
 		next[ name ] = value;
-		commit( next );
-	}
-
-	/**
-	 * Replace one row of a repeater.
-	 *
-	 * @param {Array}    rows   Current rows.
-	 * @param {Function} commit Setter.
-	 * @param {number}   index  Row index.
-	 * @param {Object}   row    New row.
-	 */
-	function replaceRow( rows, commit, index, row ) {
-		var next = rows.slice();
-		next[ index ] = row;
 		commit( next );
 	}
 
@@ -170,14 +174,19 @@
 	/**
 	 * Wrap a control so a canvas click can find it by field name.
 	 *
+	 * The list element carries the key, not the control inside it: React
+	 * reconciles the position in the `map` array, and a control without a
+	 * keyed wrapper makes every field list silently positional.
+	 *
 	 * @param {Object} field Field definition.
 	 * @param {Object} child Control element.
+	 * @param {string} key   React key for the wrapper.
 	 * @return {Object} Element.
 	 */
-	function holder( field, child ) {
+	function holder( field, child, key ) {
 		return el(
 			'div',
-			{ className: 'sdc-block__field', 'data-sdc-field': field.name },
+			{ key: key, className: 'sdc-block__field', 'data-sdc-field': field.name },
 			child
 		);
 	}
@@ -208,7 +217,8 @@
 							rows: 4,
 							onChange: commit,
 						} )
-					)
+					),
+					key
 				);
 
 			case 'true_false':
@@ -220,7 +230,8 @@
 							checked: !! value,
 							onChange: commit,
 						} )
-					)
+					),
+					key
 				);
 
 			case 'select':
@@ -239,7 +250,8 @@
 							),
 							onChange: commit,
 						} )
-					)
+					),
+					key
 				);
 
 			case 'number':
@@ -258,7 +270,8 @@
 								commit( '' === next ? '' : Number( next ) );
 							},
 						} )
-					)
+					),
+					key
 				);
 
 			case 'link':
@@ -285,7 +298,8 @@
 							value: value === undefined || value === null ? '' : String( value ),
 							onChange: commit,
 						} )
-					)
+					),
+					key
 				);
 		}
 	}
@@ -350,28 +364,15 @@
 		var subFields = field.sub_fields || [];
 
 		function add() {
-			var blank = {};
-			subFields.forEach( function ( sub ) {
-				blank[ sub.name ] = '';
-			} );
-			commit( rows.concat( [ blank ] ) );
+			commit( rows.concat( [ rowsApi.blankFields( subFields ) ] ) );
 		}
 
 		function remove( index ) {
-			commit( rows.filter( function ( row, position ) {
-				return position !== index;
-			} ) );
+			commit( rowsApi.removeRow( rows, index ) );
 		}
 
 		function move( index, offset ) {
-			var target = index + offset;
-			if ( target < 0 || target >= rows.length ) {
-				return;
-			}
-			var next = rows.slice();
-			var moved = next.splice( index, 1 )[ 0 ];
-			next.splice( target, 0, moved );
-			commit( next );
+			commit( rowsApi.moveRow( rows, index, offset ) );
 		}
 
 		var items = rows.map( function ( row, index ) {
@@ -414,9 +415,7 @@
 						sub,
 						current[ sub.name ],
 						function ( next ) {
-							var merged = Object.assign( {}, current );
-							merged[ sub.name ] = next;
-							replaceRow( rows, commit, index, merged );
+							commit( rowsApi.setField( rows, index, sub.name, next ) );
 						},
 						sub.name
 					);
@@ -503,56 +502,23 @@
 		var rows = Array.isArray( value ) ? value : [];
 		var layouts = field.layouts || [];
 
-		function layoutFor( name ) {
-			var i;
-
-			for ( i = 0; i < layouts.length; i++ ) {
-				if ( layouts[ i ].name === name ) {
-					return layouts[ i ];
-				}
-			}
-
-			return null;
-		}
-
 		function add() {
-			if ( ! layouts.length ) {
-				return;
-			}
-
 			// A blank row still names its layout, otherwise the server has
 			// no fields to render for it and silently drops the row.
-			var blank = { acf_fc_layout: layouts[ 0 ].name };
-
-			( layouts[ 0 ].sub_fields || [] ).forEach( function ( sub ) {
-				blank[ sub.name ] = '';
-			} );
-
-			commit( rows.concat( [ blank ] ) );
+			commit( rowsApi.addRow( rows, layouts ) );
 		}
 
 		function remove( index ) {
-			commit( rows.filter( function ( row, position ) {
-				return position !== index;
-			} ) );
+			commit( rowsApi.removeRow( rows, index ) );
 		}
 
 		function move( index, offset ) {
-			var target = index + offset;
-
-			if ( target < 0 || target >= rows.length ) {
-				return;
-			}
-
-			var next = rows.slice();
-			var moved = next.splice( index, 1 )[ 0 ];
-			next.splice( target, 0, moved );
-			commit( next );
+			commit( rowsApi.moveRow( rows, index, offset ) );
 		}
 
 		var items = rows.map( function ( row, index ) {
 			var current = row && typeof row === 'object' ? row : {};
-			var layout = layoutFor( current.acf_fc_layout );
+			var layout = rowsApi.layoutForRow( layouts, current );
 			var options = layouts.map( function ( entry ) {
 				return { value: entry.name, label: entry.label || entry.name };
 			} );
@@ -572,9 +538,7 @@
 								return;
 							}
 
-							var merged = Object.assign( {}, current );
-							merged.acf_fc_layout = next;
-							replaceRow( rows, commit, index, merged );
+							commit( rowsApi.setLayout( rows, index, next ) );
 						},
 					} )
 				);
@@ -617,9 +581,7 @@
 					value: layout.name,
 					options: options,
 					onChange: function ( next ) {
-						var merged = Object.assign( {}, current );
-						merged.acf_fc_layout = next;
-						replaceRow( rows, commit, index, merged );
+						commit( rowsApi.setLayout( rows, index, next ) );
 					},
 				} ),
 				( layout.sub_fields || [] ).map( function ( sub ) {
@@ -627,9 +589,7 @@
 						sub,
 						current[ sub.name ],
 						function ( next ) {
-							var merged = Object.assign( {}, current );
-							merged[ sub.name ] = next;
-							replaceRow( rows, commit, index, merged );
+							commit( rowsApi.setField( rows, index, sub.name, next ) );
 						},
 						sub.name
 					);

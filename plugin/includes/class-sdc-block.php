@@ -383,15 +383,27 @@ class Sdc_Block {
 	 */
 	public static function enqueue_editor_assets() {
 		$file = SDC_PB_DIR . 'assets/block.js';
+		$rows = SDC_PB_DIR . 'assets/inspector-rows.js';
 
-		if ( ! file_exists( $file ) ) {
+		if ( ! file_exists( $file ) || ! file_exists( $rows ) ) {
 			return;
 		}
+
+		// Row mutations, loaded first: `block.js` reads `window.SDCBlockRows`
+		// and throws without it, so the order is part of the contract. The
+		// dependency array below is what guarantees it — not the call order.
+		wp_enqueue_script(
+			self::SCRIPT . '-rows',
+			SDC_PB_URL . 'assets/inspector-rows.js',
+			array(),
+			(string) filemtime( $rows ),
+			true
+		);
 
 		wp_enqueue_script(
 			self::SCRIPT,
 			SDC_PB_URL . 'assets/block.js',
-			array( 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n', 'wp-server-side-render', 'wp-data', 'wp-compose' ),
+			array( self::SCRIPT . '-rows', 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n', 'wp-server-side-render', 'wp-data', 'wp-compose' ),
 			(string) filemtime( $file ),
 			true
 		);

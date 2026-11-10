@@ -102,6 +102,29 @@ jobs:
           export SDC_TEST_ACF_ZIP=/tmp/acf-free/advanced-custom-fields
           vendor/bin/phpunit
 
+  js:
+    name: JS (inspector rows)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The editor scripts ship as written — no bundler, no npm install. The
+      # row logic lives in assets/inspector-rows.js precisely so it runs here:
+      # a row that loses acf_fc_layout renders empty on the server and
+      # disappears, which no PHP test can see.
+      - name: Syntax check editor scripts
+        run: |
+          node --check plugin/assets/block.js
+          node --check plugin/assets/inspector-rows.js
+
+      - name: Row operation suite
+        run: node --test plugin/tests/js/
+
   readme:
     name: readme.txt structure
     runs-on: ubuntu-latest
