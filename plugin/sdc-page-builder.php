@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       SDC Page Builder
  * Plugin URI:        https://github.com/phoenixseo/sdc-page-builder
- * Description:       Komponentenbasierter Page-Builder für WordPress, der ACF-Felder und Secure Custom Fields als Bausteine nutzt. Speichert Seiten als ein JSON-Dokument mit Revisionen und Schema-Versionierung.
+ * Description:       Komponentenbasierter Page Builder: ACF- oder SCF-Felder als Bausteine, ein Block pro Komponententyp, im Editor serverseitig gerendert.
  * Version:           0.1.0
  * Requires at least: 6.4
  * Requires PHP:      7.4
