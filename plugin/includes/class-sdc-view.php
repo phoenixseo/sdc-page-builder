@@ -984,6 +984,14 @@ class Sdc_View {
 				'description' => __( 'Bild-Tag mit Adresse, Alt-Text und Maßen. Nimmt Anhang-Array, ID oder Adresse.', 'sdc-page-builder' ),
 			),
 			array(
+				'signature'   => "sdc_image_url( 'name', 'full' )",
+				'description' => __( 'Nur die Adresse des Bildes, escapt — für srcset, JSON-LD oder ein eigenes Tag. Nimmt Anhang-Array, ID oder Adresse.', 'sdc-page-builder' ),
+			),
+			array(
+				'signature'   => "sdc_image_style( 'name', 'full' )",
+				'description' => __( 'Setzt das Bild als CSS-Variable an das Element: style="--sdc-image:url(…)". Ohne Bild erscheint kein Attribut. In der CSS-Datei dann background-image: var( --sdc-image, none ).', 'sdc-page-builder' ),
+			),
+			array(
 				'signature'   => "sdc_link( 'name' )",
 				'description' => __( 'Verweis-Tag mit Beschriftung aus dem Feld. Drittes Argument setzt die Beschriftung.', 'sdc-page-builder' ),
 			),
@@ -1335,6 +1343,87 @@ if ( ! function_exists( 'sdc_image' ) ) {
 			$parts['width'] > 0 ? ' width="' . (int) $parts['width'] . '"' : '',
 			$parts['height'] > 0 ? ' height="' . (int) $parts['height'] . '"' : '',
 			$attrs // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built above from escaped name/value pairs.
+		);
+	}
+}
+
+if ( ! function_exists( 'sdc_image_url' ) ) {
+	/**
+	 * Echo the URL of an image field.
+	 *
+	 * The counterpart of `sdc_image()` for everything that is not a tag:
+	 * `srcset`, JSON-LD, a `<picture>` source, an inline style. It reads the
+	 * same three value forms, so a view never has to care whether the field
+	 * holds an attachment ID, an address or an attachment array.
+	 *
+	 * Use this, never `sdc_url()`: an image field written by its chooser
+	 * holds an ID, and `sdc_url()` would print that ID — `url(151)` in a
+	 * stylesheet is not an error either, it is an image that silently does
+	 * not appear.
+	 *
+	 * Prints nothing when the field has no image, so a missing or deleted
+	 * attachment cannot produce `src=""`.
+	 *
+	 * @param string     $key     Field name or dotted path.
+	 * @param string     $size    Image size, used when the value is an ID.
+	 * @param array|null $context Data array; null means the current component.
+	 */
+	function sdc_image_url( $key, $size = 'large', $context = null ) {
+		$parts = Sdc_View::attachment_parts( Sdc_View::resolve( $key, $context ), $size );
+
+		if ( null === $parts ) {
+			return;
+		}
+
+		echo esc_url( $parts['url'] );
+	}
+}
+
+if ( ! function_exists( 'sdc_image_style' ) ) {
+	/**
+	 * Echo a `style` attribute that hands an image field to the stylesheet.
+	 *
+	 * A component's CSS is static — it cannot read a field. So the image goes
+	 * in as a custom property on the element, and the stylesheet decides what
+	 * to do with it:
+	 *
+	 *     <div class="hero"<?php sdc_image_style( 'bgimage', 'full' ); ?>>
+	 *
+	 *     .hero { background-image: var( --sdc-image, none ); }
+	 *
+	 * The property name is a parameter because the same image may be needed
+	 * twice — as a background and as a mask — and a hard-coded name would
+	 * make the second one impossible.
+	 *
+	 * No image, no attribute: an empty `url()` would resolve against the page
+	 * itself and request the document as an image.
+	 *
+	 * @param string     $key      Field name or dotted path.
+	 * @param string     $size     Image size, used when the value is an ID.
+	 * @param string     $property Custom property name.
+	 * @param array|null $context  Data array; null means the current component.
+	 */
+	function sdc_image_style( $key, $size = 'large', $property = '--sdc-image', $context = null ) {
+		$parts = Sdc_View::attachment_parts( Sdc_View::resolve( $key, $context ), $size );
+
+		if ( null === $parts ) {
+			return;
+		}
+
+		// The custom property name ends up inside an attribute, and a name
+		// that is not a name would break out of it — `--x" onload="…` is the
+		// obvious one. Anything but the characters a property may carry is
+		// dropped; a name that is empty afterwards falls back to the default.
+		$property = preg_replace( '/[^A-Za-z0-9_\-]/', '', (string) $property );
+
+		if ( '' === $property || '-' !== $property[0] ) {
+			$property = '--sdc-image';
+		}
+
+		printf(
+			' style="%1$s:url(\'%2$s\')"',
+			esc_attr( $property ),
+			esc_url( $parts['url'] )
 		);
 	}
 }

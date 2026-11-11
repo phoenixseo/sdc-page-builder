@@ -546,7 +546,7 @@ class ViewTest extends Sdc_TestCase {
 	public function test_helpers_list_matches_the_registered_functions() {
 		$helpers = Sdc_View::helpers();
 
-		$this->assertCount( 12, $helpers );
+		$this->assertCount( 14, $helpers );
 
 		$names = array();
 		foreach ( $helpers as $helper ) {
@@ -563,6 +563,8 @@ class ViewTest extends Sdc_TestCase {
 				'sdc_attr',
 				'sdc_url',
 				'sdc_image',
+				'sdc_image_url',
+				'sdc_image_style',
 				'sdc_link',
 				'sdc_file',
 				'sdc_has',
@@ -705,6 +707,97 @@ class ViewTest extends Sdc_TestCase {
 
 		$this->assertSame( '', $this->capture( 'sdc_image', 'photo' ) );
 		$this->assertSame( '', $this->capture( 'sdc_image', 'fehlt' ) );
+	}
+
+	/**
+	 * The URL helper prints the address, not the tag — and resolves an ID.
+	 *
+	 * This is the helper a background image needs: the chooser stores an
+	 * attachment ID, `sdc_url()` would print that ID, and `url(151)` in a
+	 * stylesheet is a background that silently does not appear.
+	 */
+	public function test_sdc_image_url_resolves_an_attachment_id() {
+		$id = $this->attachment_fixture( 'image/png', 'hintergrund.png', 'Hintergrund' );
+
+		Sdc_View::push( 'hero', array( 'bg' => (string) $id ) );
+
+		$out = $this->capture( 'sdc_image_url', 'bg', 'full' );
+		$src = wp_get_attachment_image_src( $id, 'full' );
+
+		$this->assertSame( esc_url( (string) $src[0] ), $out );
+		$this->assertStringNotContainsString( '<', $out );
+		$this->assertStringEndsWith( 'hintergrund.png', $out );
+	}
+
+	/**
+	 * An address is passed through, an unsafe scheme is not.
+	 */
+	public function test_sdc_image_url_reads_a_plain_address() {
+		Sdc_View::push(
+			'hero',
+			array(
+				'bg'    => 'https://example.org/bild.jpg',
+				'boese' => 'javascript:alert(1)',
+			)
+		);
+
+		$this->assertSame( 'https://example.org/bild.jpg', $this->capture( 'sdc_image_url', 'bg' ) );
+		$this->assertStringNotContainsString( 'javascript', $this->capture( 'sdc_image_url', 'boese' ) );
+		$this->assertSame( '', $this->capture( 'sdc_image_url', 'fehlt' ) );
+	}
+
+	/**
+	 * The style attribute carries the image as a custom property.
+	 *
+	 * A component's CSS is static and cannot read a field, so this is the
+	 * bridge: the view writes the property, the stylesheet decides what to
+	 * do with it.
+	 */
+	public function test_sdc_image_style_writes_a_custom_property() {
+		Sdc_View::push( 'hero', array( 'bg' => 'https://example.org/bild.jpg' ) );
+
+		$out = $this->capture( 'sdc_image_style', 'bg' );
+
+		$this->assertSame(
+			' style="--sdc-image:url(\'https://example.org/bild.jpg\')"',
+			$out
+		);
+
+		$this->assertSame(
+			' style="--herobg:url(\'https://example.org/bild.jpg\')"',
+			$this->capture( 'sdc_image_style', 'bg', 'full', '--herobg' )
+		);
+	}
+
+	/**
+	 * Without an image there is no attribute at all.
+	 *
+	 * Not an empty `url()`: that resolves against the page itself and makes
+	 * the browser request the document as an image.
+	 */
+	public function test_sdc_image_style_prints_nothing_without_an_image() {
+		Sdc_View::push( 'hero', array( 'bg' => '' ) );
+
+		$this->assertSame( '', $this->capture( 'sdc_image_style', 'bg' ) );
+		$this->assertSame( '', $this->capture( 'sdc_image_style', 'fehlt' ) );
+	}
+
+	/**
+	 * The property name cannot end the attribute it sits in.
+	 *
+	 * It comes from view code, so it is the author's own string — but a name
+	 * with a quote in it would still close the attribute and turn the rest
+	 * into markup, and `onload=` is the reason to care.
+	 */
+	public function test_sdc_image_style_refuses_a_property_name_that_breaks_out() {
+		Sdc_View::push( 'hero', array( 'bg' => 'https://example.org/bild.jpg' ) );
+
+		$out = $this->capture( 'sdc_image_style', 'bg', 'full', '--x" onload="alert(1)' );
+
+		// Two quotes, both ours: the attribute cannot be closed from inside.
+		$this->assertStringNotContainsString( ' onload=', $out );
+		$this->assertSame( 2, substr_count( $out, '"' ) );
+		$this->assertStringStartsWith( ' style="--x', $out );
 	}
 
 	/**

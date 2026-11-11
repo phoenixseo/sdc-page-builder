@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T16:42:11+00:00\n"
+"POT-Creation-Date: 2026-11-11T17:55:38+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: sdc-page-builder\n"
@@ -747,7 +747,7 @@ msgid "Feldtyp für das neue Feld"
 msgstr ""
 
 #: includes/class-sdc-frontend.php:621
-#: includes/class-sdc-view.php:1157
+#: includes/class-sdc-view.php:1165
 msgid "Ja"
 msgstr ""
 
@@ -947,35 +947,43 @@ msgid "Bild-Tag mit Adresse, Alt-Text und Maßen. Nimmt Anhang-Array, ID oder Ad
 msgstr ""
 
 #: includes/class-sdc-view.php:988
-msgid "Verweis-Tag mit Beschriftung aus dem Feld. Drittes Argument setzt die Beschriftung."
+msgid "Nur die Adresse des Bildes, escapt — für srcset, JSON-LD oder ein eigenes Tag. Nimmt Anhang-Array, ID oder Adresse."
 msgstr ""
 
 #: includes/class-sdc-view.php:992
-msgid "Verweis auf eine Datei, mit deren Titel als Beschriftung."
+msgid "Setzt das Bild als CSS-Variable an das Element: style=\"--sdc-image:url(…)\". Ohne Bild erscheint kein Attribut. In der CSS-Datei dann background-image: var( --sdc-image, none )."
 msgstr ""
 
 #: includes/class-sdc-view.php:996
-msgid "Wahr, wenn das Feld einen Wert hat. Für bedingte Blöcke."
+msgid "Verweis-Tag mit Beschriftung aus dem Feld. Drittes Argument setzt die Beschriftung."
 msgstr ""
 
 #: includes/class-sdc-view.php:1000
-msgid "Rohwert ohne Ausgabe, für eigene Logik. Punkte sprechen Unterfelder an: cta.title."
+msgid "Verweis auf eine Datei, mit deren Titel als Beschriftung."
 msgstr ""
 
 #: includes/class-sdc-view.php:1004
-msgid "Schleife über die Zeilen einer Wiederholung. Hilferufe darin bekommen $row als letztes Argument: sdc_text( 'q', $row ), sdc_image( 'bild', 'large', array(), $row )."
+msgid "Wahr, wenn das Feld einen Wert hat. Für bedingte Blöcke."
 msgstr ""
 
 #: includes/class-sdc-view.php:1008
-msgid "Die Standardausgabe aller Felder dieser Komponente, wenn nur das Drumherum eigen sein soll."
+msgid "Rohwert ohne Ausgabe, für eigene Logik. Punkte sprechen Unterfelder an: cta.title."
 msgstr ""
 
 #: includes/class-sdc-view.php:1012
+msgid "Schleife über die Zeilen einer Wiederholung. Hilferufe darin bekommen $row als letztes Argument: sdc_text( 'q', $row ), sdc_image( 'bild', 'large', array(), $row )."
+msgstr ""
+
+#: includes/class-sdc-view.php:1016
+msgid "Die Standardausgabe aller Felder dieser Komponente, wenn nur das Drumherum eigen sein soll."
+msgstr ""
+
+#: includes/class-sdc-view.php:1020
 msgid "Baut eine Klassenliste aus nicht-leeren Teilen, escapt für ein class-Attribut."
 msgstr ""
 
 #. translators: %s: component type.
-#: includes/class-sdc-view.php:1060
+#: includes/class-sdc-view.php:1068
 #, php-format
 msgid "Aus den Feldern von „%s“ erzeugt. Ersetzt, was jetzt im Feld steht."
 msgstr ""
