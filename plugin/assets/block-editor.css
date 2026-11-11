@@ -94,3 +94,64 @@
 	margin: 0 0 4px;
 	color: #1e1e1e;
 }
+
+/*
+ * Media fields: the picture is what the author judges, so it gets the space —
+ * a filename alone does not tell an author whether they picked the right one.
+ */
+.sdc-block__media {
+	margin-bottom: 12px;
+}
+
+.sdc-block__media-label {
+	font-weight: 600;
+	font-size: 11px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
+	margin: 0 0 4px;
+	color: #1e1e1e;
+}
+
+.sdc-block__media-list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	margin-bottom: 4px;
+}
+
+.sdc-block__media-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	max-width: 100%;
+	padding: 4px;
+	border: 1px solid #dcdcde;
+	border-radius: 4px;
+	background: #fff;
+}
+
+.sdc-block__media-thumb {
+	display: block;
+	max-width: 100%;
+	max-height: 72px;
+	width: auto;
+	height: auto;
+	border-radius: 2px;
+	object-fit: cover;
+}
+
+.sdc-block__media-name {
+	font-size: 12px;
+	color: #50575e;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	max-width: 160px;
+}
+
+.sdc-block__media-actions {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	flex-wrap: wrap;
+}

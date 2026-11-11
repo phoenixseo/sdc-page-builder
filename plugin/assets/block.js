@@ -53,6 +53,17 @@
 		throw new Error( 'SDC-Block: assets/inspector-rows.js fehlt (window.SDCBlockRows).' );
 	}
 
+	/*
+	 * `assets/media-field.js` reads a media value — ID, URL or attachment
+	 * array. Same rule as above: without it the picker cannot tell a stored
+	 * URL from an ID, and an ID read as a URL renders `<img src="42">`.
+	 */
+	var mediaApi = window.SDCMediaField;
+
+	if ( ! mediaApi || typeof mediaApi.idOf !== 'function' ) {
+		throw new Error( 'SDC-Block: assets/media-field.js fehlt (window.SDCMediaField).' );
+	}
+
 	if ( ! window.wp || ! wp.blocks || ! wp.blocks.registerBlockType || ! wp.element ) {
 		return;
 	}
@@ -277,6 +288,20 @@
 			case 'link':
 				return linkControl( field, value, commit, key );
 
+			/*
+			 * Media is a value chosen from the library, not typed. Without a
+			 * own branch these fell through to the text input below and the
+			 * author had to know an attachment ID by heart.
+			 */
+			case 'image':
+			case 'file':
+			case 'gallery':
+				return holder(
+					field,
+					el( MediaField, { key: key, field: field, value: value, commit: commit } ),
+					key
+				);
+
 			case 'repeater':
 				return repeaterControl( field, value, commit, key );
 
@@ -287,9 +312,8 @@
 				return flexibleContentControl( field, value, commit, key );
 
 			default:
-				// text, email, url, image (as attachment ID), and every type
-				// without a dedicated control: a plain text input beats a
-				// missing field.
+				// text, email, url and every type without a dedicated
+				// control: a plain text input beats a missing field.
 				return holder(
 					field,
 					el(
@@ -302,6 +326,229 @@
 					key
 				);
 		}
+	}
+
+	/**
+	 * The attachment IDs in a media value.
+	 *
+	 * @param {*} value Gallery array, single value or nothing.
+	 * @return {number[]} IDs, empty when the value carries none.
+	 */
+	function mediaIds( value ) {
+		if ( ! Array.isArray( value ) ) {
+			var one = mediaApi.idOf( value );
+
+			return one > 0 ? [ one ] : [];
+		}
+
+		return value.map( mediaApi.idOf ).filter( function ( id ) {
+			return id > 0;
+		} );
+	}
+
+	/**
+	 * What the inspector needs to draw an attachment.
+	 *
+	 * A non-image attachment gets no thumbnail: WordPress lists a PDF's
+	 * filename, not a picture of it, and an `<img>` pointing at a PDF is a
+	 * broken icon in the sidebar.
+	 *
+	 * @param {Object} attachment Backbone model or plain object.
+	 * @return {Object} `{ id, url, thumb, name }`.
+	 */
+	function describeAttachment( attachment ) {
+		var json = attachment && attachment.toJSON ? attachment.toJSON() : ( attachment || {} );
+		var sizes = json.sizes || {};
+		var thumb = sizes.thumbnail || sizes.medium || null;
+		var isImage = 'image' === json.type || ( ! json.type && !! thumb );
+
+		return {
+			id: mediaApi.idOf( json ),
+			url: json.url || '',
+			thumb: isImage ? ( thumb && thumb.url ? thumb.url : ( json.url || '' ) ) : '',
+			name: json.filename || json.title || '',
+		};
+	}
+
+	/**
+	 * A media field: choose from the library, see what is chosen, remove it.
+	 *
+	 * Stored value is the attachment ID. A value that is already a URL keeps
+	 * showing as a picture and turns into an ID on the next pick — the server
+	 * reads both, and rewriting data the author did not touch is not this
+	 * control's business.
+	 *
+	 * A component, not a function returning elements: the preview state needs
+	 * hooks, and hooks called from the field list would sit in the parent's
+	 * render order — one field appearing or disappearing would then break the
+	 * order of every control after it.
+	 *
+	 * @param {Object} props `{ field, value, commit }`.
+	 * @return {Object} Element.
+	 */
+	function MediaField( props ) {
+		var field = props.field;
+		var multiple = 'gallery' === field.type;
+		var isImage = 'file' !== field.type;
+
+		var ids = mediaIds( props.value );
+		var url = multiple ? '' : mediaApi.urlOf( props.value );
+
+		if ( ! multiple ) {
+			ids = ids.slice( 0, 1 );
+		}
+
+		var signature = ids.join( ',' );
+
+		var preview = useState( {} );
+		var known = preview[ 0 ];
+		var setKnown = preview[ 1 ];
+
+		/*
+		 * A restored block carries IDs only. Fetching what is missing gives
+		 * the tiles a picture instead of "Anhang 42" — and a request per
+		 * attachment is why this stops at twelve.
+		 */
+		useEffect( function () {
+			if ( ! window.wp || ! wp.media || ! wp.media.attachment ) {
+				return undefined;
+			}
+
+			var missing = ids.filter( function ( id ) {
+				return ! known[ id ];
+			} ).slice( 0, 12 );
+
+			if ( ! missing.length ) {
+				return undefined;
+			}
+
+			var live = true;
+
+			missing.forEach( function ( id ) {
+				wp.media.attachment( id ).fetch().then( function () {
+					if ( ! live ) {
+						return;
+					}
+
+					setKnown( function ( previous ) {
+						var next = Object.assign( {}, previous );
+						next[ id ] = describeAttachment( wp.media.attachment( id ) );
+
+						return next;
+					} );
+				} );
+			} );
+
+			return function () {
+				live = false;
+			};
+		}, [ signature ] );
+
+		function open() {
+			if ( ! wp.media ) {
+				return;
+			}
+
+			var title = multiple
+				? __( 'Dateien auswählen', 'sdc-page-builder' )
+				: ( isImage ? __( 'Bild auswählen', 'sdc-page-builder' ) : __( 'Datei auswählen', 'sdc-page-builder' ) );
+
+			var frame = wp.media( {
+				title: title,
+				button: { text: __( 'Übernehmen', 'sdc-page-builder' ) },
+				library: isImage ? { type: 'image' } : {},
+				multiple: multiple ? 'add' : false,
+			} );
+
+			var state = frame.state();
+			var selection = state && state.get ? state.get( 'selection' ) : null;
+
+			// Preselect what is stored, so reopening the frame shows the
+			// current choice instead of an untouched library.
+			if ( selection && selection.add ) {
+				ids.forEach( function ( id ) {
+					selection.add( wp.media.attachment( id ) );
+				} );
+			}
+
+			frame.on( 'select', function () {
+				var chosen = frame.state().get( 'selection' ).toJSON();
+				var picked = {};
+
+				chosen.forEach( function ( attachment ) {
+					picked[ mediaApi.idOf( attachment ) ] = describeAttachment( attachment );
+				} );
+
+				setKnown( function ( previous ) {
+					return Object.assign( {}, previous, picked );
+				} );
+
+				if ( multiple ) {
+					props.commit( chosen.map( mediaApi.valueFor ).filter( function ( id ) {
+						return '' !== id;
+					} ) );
+
+					return;
+				}
+
+				props.commit( chosen.length ? mediaApi.valueFor( chosen[ 0 ] ) : '' );
+			} );
+
+			frame.open();
+		}
+
+		function remove() {
+			props.commit( multiple ? [] : '' );
+		}
+
+		var tiles = ids.map( function ( id ) {
+			var info = known[ id ] || {};
+			var thumb = isImage ? ( info.thumb || '' ) : '';
+
+			return el(
+				'div',
+				{ key: 'tile-' + id, className: 'sdc-block__media-item' },
+				thumb ? el( 'img', { className: 'sdc-block__media-thumb', src: thumb, alt: '' } ) : null,
+				el(
+					'span',
+					{ className: 'sdc-block__media-name' },
+					info.name || ( __( 'Anhang', 'sdc-page-builder' ) + ' ' + id )
+				)
+			);
+		} );
+
+		return el(
+			'div',
+			{ className: 'sdc-block__media' },
+			el( 'p', { className: 'sdc-block__media-label' }, field.label + ( field.required ? ' *' : '' ) ),
+			field.instructions ? el( 'p', { className: 'sdc-block__help' }, field.instructions ) : null,
+			url && ! ids.length
+				? el( 'img', { className: 'sdc-block__media-thumb', src: url, alt: '' } )
+				: null,
+			tiles.length ? el( 'div', { className: 'sdc-block__media-list' }, tiles ) : null,
+			el(
+				'div',
+				{ className: 'sdc-block__media-actions' },
+				el(
+					Button,
+					{
+						variant: 'secondary',
+						onClick: open,
+						disabled: ! window.wp || ! wp.media,
+					},
+					ids.length || url
+						? __( 'Ersetzen', 'sdc-page-builder' )
+						: __( 'Auswählen', 'sdc-page-builder' )
+				),
+				ids.length || url
+					? el(
+						Button,
+						{ variant: 'link', isDestructive: true, onClick: remove },
+						__( 'Entfernen', 'sdc-page-builder' )
+					)
+					: null
+			)
+		);
 	}
 
 	/**

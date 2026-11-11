@@ -382,12 +382,20 @@ class Sdc_Block {
 	 * Editor script and the schema the inspector is built from.
 	 */
 	public static function enqueue_editor_assets() {
-		$file = SDC_PB_DIR . 'assets/block.js';
-		$rows = SDC_PB_DIR . 'assets/inspector-rows.js';
+		$file  = SDC_PB_DIR . 'assets/block.js';
+		$rows  = SDC_PB_DIR . 'assets/inspector-rows.js';
+		$media = SDC_PB_DIR . 'assets/media-field.js';
 
-		if ( ! file_exists( $file ) || ! file_exists( $rows ) ) {
+		if ( ! file_exists( $file ) || ! file_exists( $rows ) || ! file_exists( $media ) ) {
 			return;
 		}
+
+		/*
+		 * The media modal. Without `wp_enqueue_media()` the editor loads no
+		 * `wp.media` at all, and a picker that checks for it would exist but
+		 * never open — a button that does nothing is worse than none.
+		 */
+		wp_enqueue_media();
 
 		// Row mutations, loaded first: `block.js` reads `window.SDCBlockRows`
 		// and throws without it, so the order is part of the contract. The
@@ -400,10 +408,20 @@ class Sdc_Block {
 			true
 		);
 
+		// Same contract for the media value rules: `block.js` reads
+		// `window.SDCMediaField` and throws when it is missing.
+		wp_enqueue_script(
+			self::SCRIPT . '-media',
+			SDC_PB_URL . 'assets/media-field.js',
+			array(),
+			(string) filemtime( $media ),
+			true
+		);
+
 		wp_enqueue_script(
 			self::SCRIPT,
 			SDC_PB_URL . 'assets/block.js',
-			array( self::SCRIPT . '-rows', 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n', 'wp-server-side-render', 'wp-data', 'wp-compose' ),
+			array( self::SCRIPT . '-rows', self::SCRIPT . '-media', 'wp-blocks', 'wp-element', 'wp-block-editor', 'wp-components', 'wp-i18n', 'wp-server-side-render', 'wp-data', 'wp-compose', 'media-views' ),
 			(string) filemtime( $file ),
 			true
 		);

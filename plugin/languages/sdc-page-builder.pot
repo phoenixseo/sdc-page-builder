@@ -9,7 +9,7 @@ msgstr ""
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"POT-Creation-Date: 2026-11-11T12:14:08+00:00\n"
+"POT-Creation-Date: 2026-11-11T16:42:11+00:00\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "X-Generator: WP-CLI 2.12.0\n"
 "X-Domain: sdc-page-builder\n"
@@ -587,7 +587,7 @@ msgstr[0] ""
 msgstr[1] ""
 
 #: includes/class-sdc-block.php:239
-#: assets/block.js:928
+#: assets/block.js:1175
 msgid "SDC-Komponente (alt)"
 msgstr ""
 
@@ -602,7 +602,7 @@ msgid "%s: noch keine Inhalte."
 msgstr ""
 
 #: includes/class-sdc-block.php:360
-#: assets/block.js:775
+#: assets/block.js:1022
 msgid "Werte rechts in der Seitenleiste eintragen."
 msgstr ""
 
@@ -653,8 +653,9 @@ msgid "Unterfelder"
 msgstr ""
 
 #: includes/class-sdc-field-editor.php:369
-#: assets/block.js:411
-#: assets/block.js:577
+#: assets/block.js:547
+#: assets/block.js:658
+#: assets/block.js:824
 msgid "Entfernen"
 msgstr ""
 
@@ -759,8 +760,8 @@ msgid "SDC: Komponenten aus der Metabox in Blöcke übernommen."
 msgstr ""
 
 #: includes/class-sdc-renderer.php:177
-#: assets/block.js:435
-#: assets/block.js:610
+#: assets/block.js:682
+#: assets/block.js:857
 msgid "Zeile hinzufügen"
 msgstr ""
 
@@ -983,48 +984,76 @@ msgstr ""
 msgid "SDC Page Builder benötigt Advanced Custom Fields oder Secure Custom Fields. Bitte eines der beiden Plugins aktivieren."
 msgstr ""
 
-#: assets/block.js:246
-#: assets/block.js:535
+#: assets/block.js:257
+#: assets/block.js:782
 msgid "— bitte wählen —"
 msgstr ""
 
-#: assets/block.js:333
+#: assets/block.js:453
+msgid "Dateien auswählen"
+msgstr ""
+
+#: assets/block.js:454
+msgid "Bild auswählen"
+msgstr ""
+
+#: assets/block.js:454
+msgid "Datei auswählen"
+msgstr ""
+
+#: assets/block.js:458
+msgid "Übernehmen"
+msgstr ""
+
+#: assets/block.js:515
+msgid "Anhang"
+msgstr ""
+
+#: assets/block.js:540
+msgid "Ersetzen"
+msgstr ""
+
+#: assets/block.js:541
+msgid "Auswählen"
+msgstr ""
+
+#: assets/block.js:580
 msgid "Linktext"
 msgstr ""
 
-#: assets/block.js:340
+#: assets/block.js:587
 msgid "Ziel (URL)"
 msgstr ""
 
-#: assets/block.js:531
+#: assets/block.js:778
 msgid "Diese Zeile hat kein Layout. Es wird nichts angezeigt."
 msgstr ""
 
-#: assets/block.js:533
-#: assets/block.js:580
+#: assets/block.js:780
+#: assets/block.js:827
 msgid "Layout"
 msgstr ""
 
-#: assets/block.js:605
+#: assets/block.js:852
 msgid "Dieses Feld hat keine Layouts."
 msgstr ""
 
-#: assets/block.js:753
+#: assets/block.js:1000
 msgid "ServerSideRender fehlt — Vorschau nicht verfügbar."
 msgstr ""
 
-#: assets/block.js:774
+#: assets/block.js:1021
 msgid "noch keine Inhalte."
 msgstr ""
 
-#: assets/block.js:853
+#: assets/block.js:1100
 msgid "Diese Komponente gibt es auf dieser Seite nicht (mehr)."
 msgstr ""
 
-#: assets/block.js:907
+#: assets/block.js:1154
 msgid "Komponente aus dem SDC-Baukasten."
 msgstr ""
 
-#: assets/block.js:929
+#: assets/block.js:1176
 msgid "Komponente aus einer früheren Fassung."
 msgstr ""
