@@ -215,6 +215,42 @@ class BlockTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * The block callback reads the post from the block's context, so a lost
+	 * component is marked on the page it actually sits on — not on the
+	 * wrong page, and not nowhere.
+	 *
+	 * `$block->context['postId']` is the only place the block knows which
+	 * post it is rendered into. If the callback dropped it, the marker
+	 * would silently vanish from exactly the pages that need it most.
+	 */
+	public function test_the_block_callback_reports_the_post_it_renders_in() {
+		$post_id = $this->factory()->post->create( array( 'post_type' => 'page' ) );
+		$user_id = $this->factory()->user->create( array( 'role' => 'administrator' ) );
+		wp_set_current_user( $user_id );
+
+		$this->assertGreaterThan( 0, $post_id );
+
+		$unknown = 'k5-block-' . substr( md5( (string) $post_id ), 0, 6 );
+		$block   = new WP_Block(
+			array(
+				'blockName'    => Sdc_Block::LEGACY,
+				'attrs'        => array( 'type' => $unknown ),
+				'innerBlocks'  => array(),
+				'innerHTML'    => '',
+				'innerContent' => array(),
+			),
+			array( 'postId' => $post_id )
+		);
+
+		$this->assertSame( $post_id, $block->context['postId'], 'The type must declare postId in uses_context, or WP drops it.' );
+
+		$callback = WP_Block_Type_Registry::get_instance()->get_registered( Sdc_Block::LEGACY )->render_callback;
+		$html     = (string) call_user_func( $callback, array( 'type' => $unknown ), '', $block );
+
+		$this->assertStringContainsString( '<!-- sdc:', $html, 'The block path must mark a lost component for an editor.' );
+	}
+
+	/**
 	 * A registered, valid type renders through the frontend path.
 	 */
 	public function test_render_prints_the_component() {

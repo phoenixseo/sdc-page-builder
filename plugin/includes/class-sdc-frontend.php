@@ -91,7 +91,7 @@ class Sdc_Frontend {
 
 		$html = '';
 		foreach ( $components as $component ) {
-			$html .= self::render_component( $component );
+			$html .= self::render_component( $component, (int) $post_id );
 		}
 
 		if ( '' === $html ) {
@@ -252,16 +252,23 @@ class Sdc_Frontend {
 	 * attributes. Both must end in `render_component()`, or the canvas and the
 	 * page would disagree about what a component looks like.
 	 *
-	 * @param string $type Component type.
-	 * @param array  $data Field values keyed by field name.
+	 * A block knows which post it sits in only when the caller passes it. The
+	 * type and the values are enough to render; the post ID decides whether a
+	 * missing view is reported in the page source, so a caller that has it
+	 * should say so.
+	 *
+	 * @param string $type    Component type.
+	 * @param array  $data    Field values keyed by field name.
+	 * @param int    $post_id Post the component belongs to; 0 when unknown.
 	 * @return string HTML.
 	 */
-	public static function render_instance( $type, array $data ) {
+	public static function render_instance( $type, array $data, $post_id = 0 ) {
 		return self::render_component(
 			array(
 				'type' => (string) $type,
 				'data' => $data,
-			)
+			),
+			(int) $post_id
 		);
 	}
 
@@ -289,19 +296,38 @@ class Sdc_Frontend {
 	 * An unknown type is skipped and logged: a document can outlive the plugin
 	 * version that wrote it, and a page must not go white for that reason.
 	 *
+	 * A page must not go white *silently* either. Two different losses reach
+	 * this method, and both used to end in an empty string with nothing in
+	 * the log:
+	 *
+	 * - the schema no longer knows the type (component deleted or renamed),
+	 * - the schema still knows it, but there is no `render.php` anywhere in
+	 *   the component directories and the definition declares no fields
+	 *   either, so the generic output can never produce anything.
+	 *
+	 * "The component rendered an empty string" is **not** on that list: a
+	 * healthy component prints nothing when its values are blank, and a page
+	 * whose hero happens to be unfilled is not a lost component. The decision
+	 * therefore comes from `has_view()`, which asks the definitions, not from
+	 * comparing this render's output to `''`.
+	 *
+	 * Both cases are reported by `report_missing()`. Deduplication happens
+	 * there, so a page with three copies of the same broken component logs
+	 * once.
+	 *
 	 * @param mixed $component Component entry from the document.
+	 * @param int   $post_id   Post the document belongs to; 0 when unknown.
 	 * @return string HTML.
 	 */
-	private static function render_component( $component ) {
+	private static function render_component( $component, $post_id = 0 ) {
 		if ( ! is_array( $component ) || empty( $component['type'] ) ) {
 			return '';
 		}
 
 		$type = (string) $component['type'];
-		$meta = Sdc_Schema::get( $type );
-		if ( ! $meta ) {
-			error_log( sprintf( 'SDC Page Builder: unbekannter Komponententyp "%s" übersprungen.', $type ) ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Content loss must be traceable.
-			return '';
+
+		if ( ! self::has_view( $type ) ) {
+			return (string) self::report_missing( $type, (int) $post_id );
 		}
 
 		$data = isset( $component['data'] ) && is_array( $component['data'] ) ? $component['data'] : array();
@@ -333,6 +359,106 @@ class Sdc_Frontend {
 		 * @param array  $component Full document entry (`_id`, `type`, `schema`, `data`).
 		 */
 		return (string) apply_filters( 'sdc_pb_component_html', $html, $type, $data, $component );
+	}
+
+	/**
+	 * Can this component type render something at all?
+	 *
+	 * The question the renderer answers implicitly and the admin notice has
+	 * to ask up front, so it lives in one place. "No view" means: the schema
+	 * does not know the type, *or* it knows it and there is neither a
+	 * render.php nor a single field the generic output could print.
+	 *
+	 * Deliberately decided from the field *definitions*, not from a render
+	 * with empty values: a healthy component prints nothing when its data is
+	 * empty, so asking it that way would report every page whose values
+	 * happen to be blank. Measured on the dev instance — `faq` has no
+	 * render.php and no definition in `sdc-components/`; it still renders
+	 * through the schema definition's fields, and a value-based check called
+	 * that "no view" on the two pages that display it correctly.
+	 *
+	 * @param string $type Component type.
+	 * @return bool
+	 */
+	public static function has_view( $type ) {
+		$type = (string) $type;
+		$meta = '' === $type ? null : Sdc_Schema::get( $type );
+		if ( ! $meta ) {
+			return false;
+		}
+
+		if ( '' !== (string) Sdc_Schema::template( $type ) ) {
+			return true;
+		}
+
+		// No view file: the generic field output is the view, and it exists
+		// exactly when the definition declares fields. `components()` has
+		// already normalized them, so this reads the same list the renderer
+		// would iterate.
+		return isset( $meta['fields'] ) && is_array( $meta['fields'] ) && array() !== $meta['fields'];
+	}
+
+	/**
+	 * Say that a component type has no view, instead of returning nothing.
+	 *
+	 * Two audiences, two channels, one call:
+	 *
+	 * - **The log**, once per request and type (`static` set). A page that
+	 *   places the same broken component three times is one fault to fix,
+	 *   not three, and a log that repeats it per instance is noise a reader
+	 *   stops scanning. Not `_doing_it_wrong()`: that is reserved for API
+	 *   misuse, and this is a data state, not a wrong call.
+	 * - **The source text of the page**, as an HTML comment, and only for
+	 *   someone who may edit this post. Visitors get nothing — an empty
+	 *   spot and a comment describing the empty spot look equally broken to
+	 *   a reader, and the second one tells the internet what the site runs.
+	 *
+	 * The comment is not wrapped in the component's own container: the point
+	 * is to survive where the component itself rendered nothing.
+	 *
+	 * @param string $type    Component type that could not be rendered.
+	 * @param int    $post_id Post the document belongs to; 0 when unknown.
+	 * @return string HTML comment for an editor, empty string for everyone else.
+	 */
+	private static function report_missing( $type, $post_id = 0 ) {
+		static $seen = array();
+
+		$type    = (string) $type;
+		$post_id = (int) $post_id;
+
+		if ( ! isset( $seen[ $type ] ) ) {
+			$seen[ $type ] = true;
+
+			/*
+			 * Translated, not a plain string: the operator who reads the log
+			 * is as likely to be German as the author who reads the source
+			 * text. The type is quoted but not escaped — a log is plain
+			 * text, and escaping would print an HTML entity into it.
+			 */
+			error_log( // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- A missing view is a content loss and has to be traceable outside the page.
+				sprintf(
+					/* translators: 1: component type, 2: post ID. */
+					__( 'SDC Page Builder: Komponententyp "%1$s" hat keine Ansicht (Seite %2$d)', 'sdc-page-builder' ),
+					$type,
+					$post_id
+				)
+			);
+		}
+
+		if ( ! $post_id || ! current_user_can( 'edit_post', $post_id ) ) {
+			return '';
+		}
+
+		return sprintf(
+			'<!-- sdc: %1$s -->',
+			esc_html(
+				sprintf(
+					/* translators: %s: component type. */
+					__( 'Komponententyp "%s" hat keine Ansicht', 'sdc-page-builder' ),
+					$type
+				)
+			)
+		);
 	}
 
 	/**

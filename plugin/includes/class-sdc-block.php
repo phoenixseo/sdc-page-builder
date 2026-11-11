@@ -199,9 +199,21 @@ class Sdc_Block {
 						'align'           => false,
 						'spacing'         => false,
 					),
-					'render_callback' => function ( $attributes ) use ( $type ) {
-						return self::render( $type, $attributes );
+					'render_callback' => function ( $attributes, $content, $block = null ) use ( $type ) {
+						return self::render( $type, $attributes, self::block_post_id( $block ) );
 					},
+
+					/*
+					 * Without this the post ID never arrives: `WP_Block` copies
+					 * a context value only when the registered type declares it
+					 * in `uses_context` (class-wp-block.php, "Only values which
+					 * are configured to be consumed by the block via its
+					 * registered type will be assigned to the block's `context`
+					 * property"). `block_post_id()` would then always read 0 and
+					 * the editor marker would never reach a real page — green
+					 * tests, silent feature.
+					 */
+					'uses_context'    => array( 'postId' ),
 					'editor_script'   => self::SCRIPT,
 					'editor_style'    => self::STYLE,
 				)
@@ -260,11 +272,13 @@ class Sdc_Block {
 					'align'           => false,
 					'spacing'         => false,
 				),
-				'render_callback' => function ( $attributes ) {
+				'render_callback' => function ( $attributes, $content = '', $block = null ) {
 					$type = isset( $attributes['type'] ) ? (string) $attributes['type'] : '';
 
-					return '' === $type ? '' : self::render( $type, $attributes );
+					return '' === $type ? '' : self::render( $type, $attributes, self::block_post_id( $block ) );
 				},
+				// Same reason as the per-type registration above.
+				'uses_context'    => array( 'postId' ),
 				'editor_script'   => self::SCRIPT,
 				'editor_style'    => self::STYLE,
 			)
@@ -318,13 +332,26 @@ class Sdc_Block {
 	 *
 	 * @param string $type       Component type.
 	 * @param array  $attributes Block attributes.
+	 * @param int    $post_id    Post the block sits in; 0 when unknown.
 	 * @return string HTML.
 	 */
-	public static function render( $type, $attributes ) {
+	public static function render( $type, $attributes, $post_id = 0 ) {
 		$type = (string) $type;
 
+		/*
+		 * Not an early return. A page can be built from blocks alone, and a
+		 * renamed type leaves those blocks in `post_content` with their old
+		 * attributes — the editor canvas shows the block, the front end shows
+		 * nothing, and nobody is told. So the unknown type goes through the
+		 * same reporter the document path uses.
+		 */
 		if ( ! Sdc_Schema::get( $type ) ) {
-			return '';
+			$attributes = is_array( $attributes ) ? $attributes : array();
+			$data       = isset( $attributes['data'] ) && is_array( $attributes['data'] )
+				? $attributes['data']
+				: array();
+
+			return Sdc_Frontend::render_instance( $type, $data, (int) $post_id );
 		}
 
 		$data = isset( $attributes['data'] ) && is_array( $attributes['data'] )
@@ -339,7 +366,13 @@ class Sdc_Block {
 			self::enqueue_style( $type );
 		}
 
-		$html = Sdc_Frontend::render_instance( $type, $data );
+		/*
+		 * The post ID goes along so a component whose view is gone can say so
+		 * in the page source of the page it sits on, for an editor only. The
+		 * block renderer knows it as `$block->context['postId']`; the caller
+		 * passes whatever it has.
+		 */
+		$html = Sdc_Frontend::render_instance( $type, $data, (int) $post_id );
 
 		/*
 		 * A component without values prints nothing — right for a page, wrong
@@ -376,6 +409,27 @@ class Sdc_Block {
 	private static function in_editor_context() {
 		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Read-only switch, same value WordPress itself passes.
 		return isset( $_GET['context'] ) && 'edit' === $_GET['context'];
+	}
+
+	/**
+	 * The post a block render belongs to, or 0 when it cannot be told.
+	 *
+	 * Block callbacks receive a `WP_Block` whose context carries `postId` for
+	 * any block rendered inside the post loop. Outside it — a template part,
+	 * a widget area, the REST preview — the value is missing, and 0 says
+	 * "unknown" rather than naming the wrong page in the source text. A
+	 * report about the wrong page is worse than none: it sends the operator
+	 * to a page that is fine.
+	 *
+	 * @param mixed $block Block instance the renderer passed in.
+	 * @return int Post ID, or 0.
+	 */
+	private static function block_post_id( $block ) {
+		if ( is_object( $block ) && isset( $block->context[ 'postId' ] ) ) {
+			return (int) $block->context[ 'postId' ];
+		}
+
+		return 0;
 	}
 
 	/**

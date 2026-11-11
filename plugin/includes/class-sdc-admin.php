@@ -79,6 +79,17 @@ class Sdc_Admin {
 	const INSTANCE_TRANSIENT = 'sdc_pb_instance_counts';
 
 	/**
+	 * Transient holding the number of pages with a component the page lost.
+	 *
+	 * Cached for two minutes rather than counted per admin page view: the
+	 * scan walks every builder page's document and content, and an operator
+	 * who reloads the list five times should not pay for it five times. The
+	 * window is short because a repaired page must stop being reported
+	 * without anyone clearing a cache by hand.
+	 */
+	const BROKEN_TRANSIENT = 'sdc_pb_broken_pages';
+
+	/**
 	 * Upper bound for an imported definition file.
 	 */
 	const MAX_IMPORT_BYTES = 262144;
@@ -128,13 +139,138 @@ class Sdc_Admin {
 		add_action( 'deleted_post', array( __CLASS__, 'clear_counts_now' ) );
 		add_action( 'trashed_post', array( __CLASS__, 'clear_counts_now' ) );
 		add_action( 'untrashed_post', array( __CLASS__, 'clear_counts_now' ) );
+
+		/*
+		 * The page list is where an operator looks first, so it is where a
+		 * page that lost a component has to say so. `admin_notices` covers
+		 * every screen with one hook; the renderer gates on the screen and
+		 * the capability, and stays silent everywhere else.
+		 */
+		add_action( 'admin_notices', array( __CLASS__, 'render_broken_notice' ) );
 	}
 
 	/**
 	 * Drop the cached counts, whatever changed.
+	 *
+	 * Both transients: the instance counts and the count of pages with a
+	 * lost component. The second one used to be left out, and the notice
+	 * then kept naming a page the operator had just repaired — for up to
+	 * two minutes, with no way to tell a stale notice from a new fault.
 	 */
 	public static function clear_counts_now() {
 		delete_transient( self::INSTANCE_TRANSIENT );
+		delete_transient( self::BROKEN_TRANSIENT );
+	}
+
+	/**
+	 * Number of pages whose document names a type with no view.
+	 *
+	 * A page counts once, however many of its components are broken: the
+	 * notice is a pointer to a page to open, not a tally of defects, and a
+	 * page with five lost components is one repair run either way.
+	 *
+	 * "No view" is asked the same way the renderer asks it — through
+	 * `Sdc_Frontend::has_view()` — so the notice cannot report a page that
+	 * renders fine, nor stay silent about one that does not.
+	 *
+	 * @return int Count of affected pages, 0 when none.
+	 */
+	public static function count_broken_pages() {
+		$cached = get_transient( self::BROKEN_TRANSIENT );
+		if ( false !== $cached ) {
+			return (int) $cached;
+		}
+
+		$count = 0;
+		$posts = get_posts(
+			array(
+				'post_type'        => Sdc_Editor::post_types(),
+				'post_status'      => array( 'publish', 'draft', 'pending', 'future', 'private' ),
+				'numberposts'      => -1,
+				'fields'           => 'ids',
+				'suppress_filters' => false,
+				'meta_key'         => Sdc_Store::META_KEY, // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key -- Only pages carrying a document can be affected.
+			)
+		);
+
+		foreach ( (array) $posts as $post_id ) {
+			if ( self::post_has_missing_view( (int) $post_id ) ) {
+				++$count;
+			}
+		}
+
+		set_transient( self::BROKEN_TRANSIENT, $count, 2 * MINUTE_IN_SECONDS );
+
+		return $count;
+	}
+
+	/**
+	 * Does this page's document name a component type that cannot render?
+	 *
+	 * Reads the document, not the rendered page: rendering a page to find
+	 * out whether it renders is the expensive and misleading way round.
+	 *
+	 * @param int $post_id Page ID.
+	 * @return bool
+	 */
+	private static function post_has_missing_view( $post_id ) {
+		$data = Sdc_Store::get_data( $post_id );
+		if ( ! is_array( $data ) || empty( $data['components'] ) || ! is_array( $data['components'] ) ) {
+			return false;
+		}
+
+		foreach ( $data['components'] as $component ) {
+			if ( ! is_array( $component ) || empty( $component['type'] ) ) {
+				continue;
+			}
+
+			if ( ! Sdc_Frontend::has_view( (string) $component['type'] ) ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * Tell the operator on the page list that pages lost their components.
+	 *
+	 * Only on the page list, only for someone who can act on it, and only
+	 * when there is something to report — an always-present warning trains
+	 * people to ignore warnings.
+	 */
+	public static function render_broken_notice() {
+		$screen = function_exists( 'get_current_screen' ) ? get_current_screen() : null;
+		if ( ! $screen || 'edit' !== $screen->base || 'page' !== $screen->post_type ) {
+			return;
+		}
+
+		if ( ! current_user_can( self::CAPABILITY ) ) {
+			return;
+		}
+
+		$count = self::count_broken_pages();
+		if ( $count < 1 ) {
+			return;
+		}
+
+		printf(
+			'<div class="notice notice-warning"><p><strong>%1$s</strong> %2$s</p></div>',
+			esc_html__( 'SDC Page Builder:', 'sdc-page-builder' ),
+			esc_html(
+				sprintf(
+					/* translators: 1: number of pages, 2: WP-CLI command. */
+					_n(
+						'%1$d Seite enthält eine Komponente ohne Ansicht. Sie rendert nichts, bis die Komponente zurück ist — Vorschau prüfen mit %2$s.',
+						'%1$d Seiten enthalten eine Komponente ohne Ansicht. Sie rendern nichts, bis die Komponente zurück ist — Vorschau prüfen mit %2$s.',
+						$count,
+						'sdc-page-builder'
+					),
+					$count,
+					'wp sdc-pb repair'
+				)
+			)
+		);
 	}
 
 	/**
