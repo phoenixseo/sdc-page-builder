@@ -47,12 +47,22 @@ else
 fi
 
 # All required sections present, in the order wp.org renders them.
+# Screenshots is optional: wp.org renders the section only when the plugin
+# ships screenshot-*.png, and a caption without a file is a review finding. So
+# the section is required to be *in order* when present, not to be present —
+# it sits between FAQ and Changelog, so it takes part in the order check.
 sections=("== Description ==" "== Installation ==" "== Frequently Asked Questions ==" "== Screenshots ==" "== Changelog ==" "== Upgrade Notice ==")
+optional=" == Screenshots == "
 last_line=0
 order_ok=1
 for section in "${sections[@]}"; do
-	line="$(grep -n -F "$section" "$README" | head -1 | cut -d: -f1)"
+	# `|| true`: grep exits 1 on no match, and `set -e` would abort the whole
+	# check here instead of reaching the optional-section branch below.
+	line="$(grep -n -F "$section" "$README" | head -1 | cut -d: -f1 || true)"
 	if [ -z "$line" ]; then
+		case "$optional" in
+			*" $section "*) continue ;;
+		esac
 		fail "section missing: $section"
 		order_ok=0
 		continue
@@ -63,7 +73,7 @@ for section in "${sections[@]}"; do
 	fi
 	last_line="$line"
 done
-[ "$order_ok" -eq 1 ] && pass "all sections present and in order"
+[ "$order_ok" -eq 1 ] && pass "all required sections present and in order"
 
 # Changelog must name the stable tag, otherwise the release notes are absent.
 if grep -q "^= ${stable_tag} =" "$README"; then
@@ -81,11 +91,17 @@ else
 	fail "description too long ($desc chars)"
 fi
 
+# A numbered caption promises a file. If the section lists any, a screenshot
+# must actually ship next to the plugin — otherwise the list is a false claim.
 shots="$(sed -n '/^== Screenshots ==/,/^== Changelog ==/p' "$README" | grep -cE '^[0-9]+\. ' || true)"
-if [ "$shots" -ge 1 ] && [ "$shots" -le 10 ]; then
-	pass "screenshots listed: $shots (1-10)"
+if [ "$shots" -eq 0 ]; then
+	pass "screenshots: section lists no captions (and ships no files)"
+elif [ "$shots" -gt 10 ]; then
+	fail "screenshot count out of range: $shots (max 10)"
+elif [ ! -f "$ROOT/plugin/screenshot-${shots}.png" ]; then
+	fail "$shots screenshot captions listed, but plugin/screenshot-${shots}.png is missing"
 else
-	fail "screenshot count out of range: $shots"
+	pass "screenshots listed: $shots (1-10), screenshot-${shots}.png present"
 fi
 
 # Tags: max 5, lowercase, comma separated.

@@ -17,5 +17,8 @@ test-scf/.wp-env.json
 .idea/
 .vscode/
 
+# Release-Artefakt (mit test-scf/build-zip.py erzeugt, nicht versioniert)
+sdc-page-builder.zip
+
 # Recherche-Belege bleiben im Repo, aber nichts Generiertes
 _research/tmp/

@@ -1,0 +1,30 @@
+# Files that stay out of the wp.org package.
+#
+# Matching is relative to the repository root. A pattern without a leading slash
+# matches a file or directory name at any depth (`composer.json` also catches
+# `plugin/composer.json`); a leading slash anchors the pattern to that exact
+# root-relative path. `*` does not cross a directory separator.
+#
+# Local tooling and test scaffolding
+node_modules
+vendor
+tests
+test-scf
+_research
+.github
+phpcs.xml.dist
+phpunit.xml.dist
+composer.json
+composer.lock
+package.json
+package-lock.json
+AGENTS.md
+K7-RELEASE-BERICHT.md
+# Documentation and packaging output that does not belong in the plugin dir.
+# Anchored: the plugin ships its own LICENSE (a copy) and the repo-root one and
+# README.md are not part of the package.
+/README.md
+/LICENSE
+/sdc-page-builder.zip
+# Contributor-facing notes next to the assets, not shipped code
+/plugin/assets/README.md

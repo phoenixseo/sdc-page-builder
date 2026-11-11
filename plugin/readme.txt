@@ -4,7 +4,7 @@ Tags: page builder, components, acf, custom fields, blocks
 Requires at least: 6.4
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -107,20 +107,34 @@ A block can outlive the plugin version that registered it. The editor marks it a
 
 == Screenshots ==
 
-1. The inserter: *SDC components* at the top, one block per component type.
-2. A component in the canvas, rendered with the real frontend markup.
-3. The selected component's fields in the block sidebar.
-4. The component catalogue in the admin: fields, usage count, and the delete guard.
+= None yet =
+
+This release ships no screenshots. The plugin is complete and in submission
+review; screenshots of the inserter, the canvas, the block sidebar and the
+component catalogue will be added in the next release.
 
 <!--
-	The four screenshot files (screenshot-1.png … screenshot-4.png) are not part
-	of this repository yet. They need an authenticated admin session on a seeded
-	site to capture, which this environment does not have. Add them to assets/
-	before submitting to wp.org; until then the list above stays as the intended
-	captions. Tracked in the release report.
+	The section stays with this note instead of being removed: a heading that
+	lists no numbered item describes what the plugin offers instead of promising
+	a file that is not there. The captions that were here before (inserter,
+	canvas, sidebar, catalogue) are the intended shots and belong back here once
+	the four PNGs exist — see assets/README.md.
 -->
 
 == Changelog ==
+
+= 0.2.0 =
+* Fixed: converting a pre-block page to blocks could drop components. The
+  conversion now adds each missing component instance instead of only flagging
+  the page as converted, so a page never loses a component on its way from the
+  old store to block markup.
+* New: `wp sdc-pb repair [--post=<id>] [--apply]` finds pages whose stored
+  document and block content disagree. It is a dry run by default; `--apply`
+  writes the missing blocks. Idempotent — a second run reports nothing to do.
+* New: a component whose view file is missing or no longer renders now says so.
+  The failure is logged once per request and type instead of disappearing, and
+  editors — never visitors — see a marker in the rendered page and a notice on
+  the pages list.
 
 = 0.1.0 =
 * Initial release.
