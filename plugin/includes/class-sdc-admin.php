@@ -595,10 +595,18 @@ class Sdc_Admin {
 		self::render_fields_help();
 		echo '</td></tr>';
 
-		// No type yet: the panel shows the helper reference and takes a body,
-		// but the generator needs the saved field list and appears on the edit
-		// screen instead.
+		/*
+		 * No type yet: the panel shows the helper reference and takes a body,
+		 * but the generator needs the saved field list and appears on the edit
+		 * screen instead.
+		 *
+		 * A row of its own, spanning both columns: the panel prints blocks,
+		 * and a paragraph directly inside a `form-table` would make the
+		 * browser hoist it out of the table.
+		 */
+		echo '<tr><th scope="row">' . esc_html__( 'Ansicht', 'sdc-page-builder' ) . '</th><td>';
 		Sdc_View_Editor::render( '' );
+		echo '</td></tr>';
 
 		echo '</table>';
 		submit_button( __( 'Komponente anlegen', 'sdc-page-builder' ) );
@@ -673,6 +681,9 @@ class Sdc_Admin {
 			'icon'        => isset( $base['sdc_icon'] ) ? (string) $base['sdc_icon'] : '',
 			'fields'      => self::printable_fields( isset( $base['fields'] ) && is_array( $base['fields'] ) ? $base['fields'] : array() ),
 			'view'        => Sdc_View::read( Sdc_View::file( self::write_dir(), $type ) ),
+			// The delivered stylesheet, not the slot in wp-content: when a
+			// theme ships the file, that is the one the page sees.
+			'css'         => Sdc_View::read_style( Sdc_View::style( $type ) ),
 		);
 
 		$draft = self::take_draft( $type );
@@ -714,8 +725,79 @@ class Sdc_Admin {
 		self::form_hidden( 'update' );
 		printf( '<input type="hidden" name="sdc_type" value="%s" />', esc_attr( $type ) );
 
-		echo '<table class="form-table" role="presentation">';
+		/*
+		 * Three tabs, because this screen edits three different layers and a
+		 * normal day touches only the first. All three panels sit in the DOM
+		 * and are posted together, so switching a tab never drops a change;
+		 * without JavaScript the browser shows all three stacked, which is
+		 * the fallback for a browser that cannot switch them.
+		 *
+		 * The field definitions, not the JSON: the view generator walks
+		 * arrays. `$values['fields']` is a JSON string — for a draft it may
+		 * even be broken, and then there is simply nothing to generate from
+		 * and the panel says so.
+		 */
+		$view_fields = json_decode( (string) $values['fields'], true );
 
+		Sdc_Tabs::render(
+			array(
+				array(
+					'id'       => 'content',
+					'label'    => __( 'Inhalt', 'sdc-page-builder' ),
+					'hint'     => __( 'Name, Beschreibung und die Felder, die der Redaktion angeboten werden. Das ist der Teil, der sich im Alltag ändert.', 'sdc-page-builder' ),
+					'callback' => function () use ( $type, $values ) {
+						echo '<table class="form-table" role="presentation">';
+						self::render_identity_rows( $type, $values );
+						self::render_fields_row( $values );
+						echo '</table>';
+					},
+				),
+				array(
+					'id'       => 'view',
+					'label'    => __( 'Ansicht (PHP)', 'sdc-page-builder' ),
+					'hint'     => __( 'Wie die Komponente ausgegeben wird. Optional: ohne render.php erscheinen die Felder in einer generischen Ausgabe.', 'sdc-page-builder' ),
+					'callback' => function () use ( $type, $values, $view_fields ) {
+						Sdc_View_Editor::render( $type, is_array( $view_fields ) ? $view_fields : array(), $values['view'] );
+					},
+				),
+				array(
+					'id'       => 'styles',
+					'label'    => __( 'Styles (CSS)', 'sdc-page-builder' ),
+					'hint'     => __( 'Eigene Gestaltung der Komponente. Optional: ohne component.css erbt sie die Styles des Themes.', 'sdc-page-builder' ),
+					'callback' => function () use ( $type, $values ) {
+						Sdc_Style_Editor::render( $type, $values['css'] );
+					},
+				),
+			),
+			self::active_tab(),
+			__( 'Bereiche der Komponente', 'sdc-page-builder' )
+		);
+
+		submit_button( __( 'Komponente speichern', 'sdc-page-builder' ) );
+		printf( '<p><a href="%s">%s</a></p>', esc_url( self::catalog_url() ), esc_html__( 'Abbrechen', 'sdc-page-builder' ) );
+		echo '</form>';
+	}
+
+	/**
+	 * The tab that should be open on arrival.
+	 *
+	 * Set by the redirect after a save that failed in a specific layer, so
+	 * the error and the box that caused it are on screen together.
+	 *
+	 * @return string Tab id, or an empty string for the first tab.
+	 */
+	private static function active_tab() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display flag only, no data changes.
+		return isset( $_GET['sdc_tab'] ) ? sanitize_key( wp_unslash( $_GET['sdc_tab'] ) ) : '';
+	}
+
+	/**
+	 * Type, name, description and icon, as rows of a form table.
+	 *
+	 * @param string $type   Component type.
+	 * @param array  $values Values the form shows.
+	 */
+	private static function render_identity_rows( $type, array $values ) {
 		// The type is shown, never posted as an editable value.
 		echo '<tr><th scope="row">' . esc_html__( 'Typ', 'sdc-page-builder' ) . '</th><td>';
 		printf( '<code>%s</code>', esc_html( $type ) );
@@ -742,7 +824,14 @@ class Sdc_Admin {
 			esc_html__( 'Optional. Ein Dashicon-Name, z. B. layout, cover-image, format-quote, table.', 'sdc-page-builder' )
 		);
 		echo '</td></tr>';
+	}
 
+	/**
+	 * The field editor, its confirmation checkbox and the help text.
+	 *
+	 * @param array $values Values the form shows.
+	 */
+	private static function render_fields_row( array $values ) {
 		echo '<tr><th scope="row"><label for="sdc_fields">' . esc_html__( 'Felder', 'sdc-page-builder' ) . '</label></th><td>';
 		Sdc_Field_Editor::render( $values['fields'] );
 		// Outside the editor on purpose: the confirmation must stay visible even
@@ -758,24 +847,6 @@ class Sdc_Admin {
 		);
 		self::render_fields_help();
 		echo '</td></tr>';
-
-		/*
-		 * The panel needs the field definitions, not the JSON the textarea
-		 * above shows: the generator walks arrays. `$values['fields']` is a
-		 * JSON string — for a draft it may even be broken, and then there is
-		 * simply nothing to generate from and the panel says so.
-		 */
-		$view_fields = json_decode( (string) $values['fields'], true );
-
-		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Display flag only, no data changes.
-		$view_open = isset( $_GET['sdc_view'] ) && '1' === sanitize_key( wp_unslash( $_GET['sdc_view'] ) );
-
-		Sdc_View_Editor::render( $type, is_array( $view_fields ) ? $view_fields : array(), $values['view'], $view_open );
-
-		echo '</table>';
-		submit_button( __( 'Komponente speichern', 'sdc-page-builder' ) );
-		printf( '<p><a href="%s">%s</a></p>', esc_url( self::catalog_url() ), esc_html__( 'Abbrechen', 'sdc-page-builder' ) );
-		echo '</form>';
 	}
 
 	/**
@@ -1029,6 +1100,13 @@ class Sdc_Admin {
 			if ( 'update' === $task ) {
 				$args  = self::edit_args();
 				$draft = empty( $args ) ? array() : self::posted_draft();
+				$data  = $result->get_error_data();
+
+				// A validator that knows which tab owns the box says so; the
+				// form then opens there instead of on the field list.
+				if ( ! empty( $args ) && is_array( $data ) && ! empty( $data['sdc_tab'] ) ) {
+					$args['sdc_tab'] = sanitize_key( (string) $data['sdc_tab'] );
+				}
 
 				self::redirect( 'error', $result->get_error_message(), $args, $draft );
 			}
@@ -1063,10 +1141,15 @@ class Sdc_Admin {
 
 		$args = self::edit_args();
 
-		// The generator's output is the reason the author is coming back to
-		// this form, so the panel holding it has to be open on arrival.
+		// Whatever produced the answer the author is coming back to read
+		// decides which tab opens: the generator lives in the view, the
+		// scaffold in the styles.
 		if ( array() !== $args && Sdc_View_Editor::wants_generate() ) {
-			$args['sdc_view'] = '1';
+			$args['sdc_tab'] = 'view';
+		}
+
+		if ( array() !== $args && Sdc_Style_Editor::wants_scaffold() ) {
+			$args['sdc_tab'] = 'styles';
 		}
 
 		return $args;
@@ -1096,6 +1179,7 @@ class Sdc_Admin {
 			'icon'        => self::posted( 'sdc_icon' ),
 			'fields'      => self::posted_raw( 'sdc_fields' ),
 			'view'        => self::posted_raw( Sdc_View_Editor::FIELD ),
+			'css'         => self::posted_raw( Sdc_Style_Editor::FIELD ),
 		);
 	}
 
@@ -1361,10 +1445,24 @@ class Sdc_Admin {
 		$definition['sdc_icon']        = self::posted( 'sdc_icon' );
 		$definition['fields']          = $fields;
 
+		/*
+		 * Both code layers are linted before the first file is written, so a
+		 * rejected stylesheet cannot leave the component saved with half of
+		 * the edit applied. The write lints again — this is about the order
+		 * of the three files, not about trusting either answer.
+		 */
 		$view_valid = Sdc_View_Editor::validate( $type, $fields );
 
 		if ( is_wp_error( $view_valid ) ) {
+			$view_valid->add_data( array( 'sdc_tab' => 'view' ) );
 			return $view_valid;
+		}
+
+		$style_valid = Sdc_Style_Editor::validate( $type );
+
+		if ( is_wp_error( $style_valid ) ) {
+			$style_valid->add_data( array( 'sdc_tab' => 'styles' ) );
+			return $style_valid;
 		}
 
 		$written = self::write_definition( self::write_dir(), $type, $definition, true );
@@ -1373,7 +1471,13 @@ class Sdc_Admin {
 			return $written;
 		}
 
-		return Sdc_View_Editor::save( self::write_dir(), $type, $fields );
+		$viewed = Sdc_View_Editor::save( self::write_dir(), $type, $fields );
+
+		if ( is_wp_error( $viewed ) ) {
+			return $viewed;
+		}
+
+		return Sdc_Style_Editor::save( self::write_dir(), $type );
 	}
 
 	/**

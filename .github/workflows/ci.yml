@@ -121,6 +121,8 @@ jobs:
         run: |
           node --check plugin/assets/block.js
           node --check plugin/assets/inspector-rows.js
+          node --check plugin/assets/admin-tabs.js
+          node --check plugin/assets/field-editor.js
 
       - name: Row operation suite
         run: node --test plugin/tests/js/

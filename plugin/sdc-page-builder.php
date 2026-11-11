@@ -66,6 +66,8 @@ require_once SDC_PB_DIR . 'includes/class-sdc-field-editor.php';
  */
 require_once SDC_PB_DIR . 'includes/class-sdc-view.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-view-editor.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-style-editor.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-tabs.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-admin.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-frontend.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-block.php';

@@ -217,6 +217,254 @@ class Sdc_View {
 	}
 
 	/**
+	 * The stylesheet's contents, as the admin shows it.
+	 *
+	 * Plain text, no wrapper to strip: a CSS file is what it is. BOM removed,
+	 * line endings unified — otherwise a file written on Windows shows up in
+	 * the textarea with a stray character and saves back what looks like a
+	 * change on every round trip.
+	 *
+	 * @param string $file Absolute path.
+	 * @return string Stylesheet, or an empty string when the file is missing.
+	 */
+	public static function read_style( $file ) {
+		$file = (string) $file;
+
+		if ( '' === $file || ! is_readable( $file ) ) {
+			return '';
+		}
+
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- Local stylesheet, no HTTP involved.
+		$css = file_get_contents( $file );
+
+		return false === $css ? '' : self::normalize_style( $css );
+	}
+
+	/**
+	 * Bring a posted stylesheet into the shape a file should have.
+	 *
+	 * @param string $css Raw CSS.
+	 * @return string
+	 */
+	public static function normalize_style( $css ) {
+		$css = (string) $css;
+
+		if ( 0 === strpos( $css, "\xEF\xBB\xBF" ) ) {
+			$css = substr( $css, 3 );
+		}
+
+		$css = str_replace( array( "\r\n", "\r" ), "\n", $css );
+		$css = rtrim( $css );
+
+		return '' === $css ? '' : $css . "\n";
+	}
+
+	/**
+	 * Would this stylesheet survive the page it lands on?
+	 *
+	 * Three checks, and each one stands for a failure that is silent rather
+	 * than loud — the reason they are worth doing at all:
+	 *
+	 * 1. `</style` ends the inline `<style>` element, because the CSS is
+	 *    delivered inlined (see `Sdc_Block::styles()`). Everything after it is
+	 *    then parsed as HTML: the rest of the page loses its styles at best,
+	 *    and a hand-written payload would be markup on the page.
+	 * 2. An unterminated comment swallows the CSS of every component that
+	 *    follows on the same page, since all of them share one `<style>`.
+	 *    The page is then unstyled in a way nobody can trace back to this
+	 *    file.
+	 * 3. Unbalanced braces usually mean a rule never closes; the browser
+	 *    drops what follows without saying so.
+	 *
+	 * A CSS parser is deliberately not involved: it would be a dependency for
+	 * three checks whose failure modes are all about delimiters.
+	 *
+	 * @param string $css Stylesheet.
+	 * @return true|WP_Error
+	 */
+	public static function lint_style( $css ) {
+		$css = self::normalize_style( $css );
+
+		if ( '' === $css ) {
+			return true;
+		}
+
+		if ( false !== stripos( $css, '</style' ) ) {
+			return new WP_Error(
+				'sdc_style_tag',
+				__( 'Die Styles enthalten „</style“. Das beendet das <style>-Element, in dem die Komponenten-Styles ausgeliefert werden — der Rest der Seite würde als HTML gelesen. Schreib den Selektor anders, dann speichert es.', 'sdc-page-builder' )
+			);
+		}
+
+		if ( false !== strpos( $css, '<?' ) ) {
+			return new WP_Error(
+				'sdc_style_php',
+				__( 'Das hier ist CSS, kein PHP: „<?“ wird als Text ausgegeben und nicht ausgeführt. Für Markup ist die Ansicht (render.php) zuständig.', 'sdc-page-builder' )
+			);
+		}
+
+		// Comments and strings first, so a brace inside either one is not
+		// counted and a comment cannot hide an opening brace from the checks.
+		$bare = self::style_without_literals( $css );
+
+		if ( false !== strpos( $bare, '/*' ) ) {
+			return new WP_Error(
+				'sdc_style_comment',
+				__( 'Ein Kommentar ist nicht geschlossen (/* ohne */). Alles danach bliebe auf der Seite ungestylt, weil alle Komponenten-Styles in einem gemeinsamen <style>-Element stehen.', 'sdc-page-builder' )
+			);
+		}
+
+		$open  = substr_count( $bare, '{' );
+		$close = substr_count( $bare, '}' );
+
+		if ( $open !== $close ) {
+			return new WP_Error(
+				'sdc_style_braces',
+				sprintf(
+					/* translators: 1: number of opening braces, 2: number of closing braces. */
+					__( 'Die Klammern passen nicht: %1$d geöffnet, %2$d geschlossen. Eine Regel bleibt damit offen und der Browser verwirft, was folgt.', 'sdc-page-builder' ),
+					$open,
+					$close
+				)
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * A stylesheet with comments and quoted strings blanked out.
+	 *
+	 * Blanked, not removed: what is left has the same structure, so a brace
+	 * count over it means what it looks like. An unterminated comment runs to
+	 * the end of the input, which is what the browser does too — and the
+	 * leftover `/*` is the signal the caller checks for.
+	 *
+	 * @param string $css Stylesheet.
+	 * @return string
+	 */
+	private static function style_without_literals( $css ) {
+		$out = '';
+		$len = strlen( (string) $css );
+		$i   = 0;
+
+		while ( $i < $len ) {
+			$char = $css[ $i ];
+			$next = $i + 1 < $len ? $css[ $i + 1 ] : '';
+
+			if ( '/' === $char && '*' === $next ) {
+				$end = strpos( $css, '*/', $i + 2 );
+
+				if ( false === $end ) {
+					// Unterminated: keep the opener so lint_style() can see it.
+					$out .= '/*';
+					break;
+				}
+
+				$i = $end + 2;
+				continue;
+			}
+
+			if ( '"' === $char || "'" === $char ) {
+				$j = $i + 1;
+
+				while ( $j < $len && $css[ $j ] !== $char ) {
+					$j += '\\' === $css[ $j ] ? 2 : 1;
+				}
+
+				$i = $j + 1;
+				continue;
+			}
+
+			$out .= $char;
+			++$i;
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Write a stylesheet, or remove it when nothing is left.
+	 *
+	 * Same discipline as the view: written next to the target and renamed, so
+	 * a crash mid-write cannot leave half a stylesheet that the next page load
+	 * would deliver. An empty body deletes the file, which is how a component
+	 * goes back to having no styles of its own.
+	 *
+	 * @param string $dir  Component root directory.
+	 * @param string $type Component type.
+	 * @param string $css  Posted stylesheet.
+	 * @return true|WP_Error
+	 */
+	public static function write_style( $dir, $type, $css ) {
+		$file = self::style_file( $dir, $type );
+
+		if ( '' === $file ) {
+			return new WP_Error( 'sdc_style_type', __( 'Dieser Komponententyp ist kein gültiger Dateiname.', 'sdc-page-builder' ) );
+		}
+
+		$code  = self::normalize_style( $css );
+		$valid = self::lint_style( $code );
+
+		if ( is_wp_error( $valid ) ) {
+			return $valid;
+		}
+
+		if ( '' === $code ) {
+			return self::discard( $file, 'sdc_style' );
+		}
+
+		return self::put( $file, $code, 'sdc_style' );
+	}
+
+	/**
+	 * May this stylesheet be edited from the admin?
+	 *
+	 * Looser than `can_edit()`, and on purpose: a view is PHP and runs with
+	 * the site's privileges, a stylesheet is data. Whoever may manage the site
+	 * may write CSS for it — so the constant that gates PHP (`SDC_PB_ALLOW_VIEW_EDIT`)
+	 * is not consulted here, and a site can allow styles while keeping views
+	 * to itself.
+	 *
+	 * @param string $type Component type.
+	 * @return bool
+	 */
+	public static function can_edit_style( $type = '' ) {
+		$can = current_user_can( Sdc_Admin::CAPABILITY );
+
+		/**
+		 * Filters whether component styles may be edited in the admin.
+		 *
+		 * @param bool   $can  Whether editing is allowed.
+		 * @param string $type Component type.
+		 */
+		return (bool) apply_filters( 'sdc_pb_can_edit_style', $can, (string) $type );
+	}
+
+	/**
+	 * A starting point for a component's stylesheet.
+	 *
+	 * Two rules and a comment, not a design: the point is the selector. A
+	 * component's markup sits inside `<div class="sdc-component sdc-component--<typ>">`,
+	 * and styles written without that scope reach into everything else on the
+	 * page. Shown as the first thing in the box, because it is the one thing
+	 * that is easy to get wrong and hard to notice.
+	 *
+	 * @param string $type Component type.
+	 * @return string
+	 */
+	public static function style_scaffold( $type ) {
+		$type = (string) $type;
+
+		return '/* Styles der Komponente "' . str_replace( '*/', '', $type ) . "\".\n"
+			. " * Nur innerhalb ihres Wrappers: sonst greift die Regel in fremde\n"
+			. " * Inhalte derselben Seite. Ausgeliefert wird inline im <head>, nur\n"
+			. " * für die Komponenten, die auf der Seite stehen. */\n"
+			. '.sdc-component--' . $type . " {\n"
+			. "}\n";
+	}
+
+	/**
 	 * The editable body of a view file.
 	 *
 	 * @param string $file Absolute path.
@@ -415,25 +663,31 @@ class Sdc_View {
 		}
 
 		if ( '' === $code ) {
-			if ( is_file( $file ) && ! @unlink( $file ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing a view file; a failure is reported on the next line.
-				return new WP_Error(
-					'sdc_view_delete_failed',
-					sprintf(
-						/* translators: %s: absolute file path. */
-						__( 'Die Datei %s ließ sich nicht entfernen.', 'sdc-page-builder' ),
-						$file
-					)
-				);
-			}
-
-			return true;
+			return self::discard( $file, 'sdc_view' );
 		}
 
+		return self::put( $file, self::wrap( $type, $code ), 'sdc_view' );
+	}
+
+	/**
+	 * Store a component file: write next to it, then rename.
+	 *
+	 * The rename is what makes this safe to do on a live site. A page load
+	 * that happens mid-write sees either the old file or the new one, never
+	 * half of each — and the PHP view is `include`d, so half of one would be
+	 * a fatal error on the next request.
+	 *
+	 * @param string $file     Absolute path.
+	 * @param string $contents File contents.
+	 * @param string $prefix   Error code prefix: `sdc_view` or `sdc_style`.
+	 * @return true|WP_Error
+	 */
+	private static function put( $file, $contents, $prefix ) {
 		$folder = dirname( $file );
 
 		if ( ! is_dir( $folder ) && ! wp_mkdir_p( $folder ) ) {
 			return new WP_Error(
-				'sdc_view_mkdir_failed',
+				$prefix . '_mkdir_failed',
 				sprintf(
 					/* translators: %s: absolute directory path. */
 					__( 'Der Ordner %s ließ sich nicht anlegen.', 'sdc-page-builder' ),
@@ -442,23 +696,42 @@ class Sdc_View {
 			);
 		}
 
-		$contents = self::wrap( $type, $code );
-
-		/*
-		 * Same write discipline as `definition.json`: write next to the target
-		 * and rename, so a crash mid-write cannot leave half a view that the
-		 * next page load would fatal on.
-		 */
 		$tmp  = $file . '.tmp';
 		$done = file_put_contents( $tmp, $contents ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_file_put_contents -- Writing a component file; WP_Filesystem would ask for credentials in the admin.
 
 		if ( false === $done || ! @rename( $tmp, $file ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.rename_rename -- Same-directory rename; a failure is reported here.
 			@unlink( $tmp ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing the temporary file of a failed write.
 			return new WP_Error(
-				'sdc_view_write_failed',
+				$prefix . '_write_failed',
 				sprintf(
 					/* translators: %s: absolute file path. */
 					__( 'Die Datei %s ließ sich nicht schreiben.', 'sdc-page-builder' ),
+					$file
+				)
+			);
+		}
+
+		return true;
+	}
+
+	/**
+	 * Remove a component file.
+	 *
+	 * @param string $file   Absolute path.
+	 * @param string $prefix Error code prefix: `sdc_view` or `sdc_style`.
+	 * @return true|WP_Error
+	 */
+	private static function discard( $file, $prefix ) {
+		if ( ! is_file( $file ) ) {
+			return true;
+		}
+
+		if ( ! @unlink( $file ) ) { // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged, WordPress.WP.AlternativeFunctions.unlink_unlink -- Removing a component file; a failure is reported here.
+			return new WP_Error(
+				$prefix . '_delete_failed',
+				sprintf(
+					/* translators: %s: absolute file path. */
+					__( 'Die Datei %s ließ sich nicht entfernen.', 'sdc-page-builder' ),
 					$file
 				)
 			);

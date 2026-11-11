@@ -44,17 +44,16 @@ class Sdc_View_Editor {
 	}
 
 	/**
-	 * The view panel, as a row of the surrounding form table.
+	 * The view panel.
 	 *
-	 * Both forms on the component screen are a `form-table`, so this prints a
-	 * complete `<tr>` and the caller drops it in.
+	 * A block, not a table row: on the component screen it is the body of its
+	 * own tab, so the surrounding markup belongs to the caller.
 	 *
 	 * @param string      $type   Component type; empty on the create form.
 	 * @param array[]     $fields Field definitions, for the generator.
 	 * @param string|null $body   Body to show; null reads it from disk.
-	 * @param bool        $open   Whether the panel starts expanded.
 	 */
-	public static function render( $type, array $fields = array(), $body = null, $open = false ) {
+	public static function render( $type, array $fields = array(), $body = null ) {
 		if ( ! Sdc_View::can_edit( $type ) ) {
 			return;
 		}
@@ -63,24 +62,10 @@ class Sdc_View_Editor {
 			$body = Sdc_View::read( Sdc_View::file( Sdc_Admin::write_dir(), $type ) );
 		}
 
-		echo '<tr><th scope="row"><label for="' . esc_attr( self::FIELD ) . '">';
-		echo esc_html__( 'Ansicht', 'sdc-page-builder' );
-		echo '</label></th><td>';
-
-		/*
-		 * Expanded when the request says so: after the generator ran, the
-		 * body in this box *is* the answer to the click. Left collapsed, the
-		 * author lands on a form that looks untouched and has to hunt for
-		 * the result. Everywhere else the panel stays shut, so editing
-		 * fields does not start with a screen of PHP.
-		 */
-		printf( '<details%s>', $open ? ' open' : '' );
-
 		printf(
-			'<summary>%s</summary>',
-			'' === trim( (string) $body )
-				? esc_html__( 'Ansicht schreiben (optional, sonst generische Ausgabe)', 'sdc-page-builder' )
-				: esc_html__( 'Ansicht bearbeiten (render.php vorhanden)', 'sdc-page-builder' )
+			'<p><label for="%1$s"><strong>%2$s</strong></label></p>',
+			esc_attr( self::FIELD ),
+			esc_html__( 'render.php', 'sdc-page-builder' )
 		);
 
 		printf(
@@ -89,12 +74,12 @@ class Sdc_View_Editor {
 		);
 
 		printf(
-			'<textarea id="%1$s" name="%1$s" rows="14" class="large-text code" spellcheck="false">%2$s</textarea>',
+			'<textarea id="%1$s" name="%1$s" rows="16" class="large-text code" spellcheck="false" aria-describedby="sdc-view-help">%2$s</textarea>',
 			esc_attr( self::FIELD ),
 			esc_textarea( (string) $body )
 		);
 
-		echo '<p class="description">';
+		echo '<p class="description" id="sdc-view-help">';
 		printf(
 			/* translators: 1: name of the type variable, 2: name of the data variable, 3: name of the component variable. */
 			esc_html__( 'Verfügbar sind %1$s (Typ), %2$s (Feldwerte) und %3$s (der Komponenten-Eintrag), dazu die Helfer unten. Ein Syntaxfehler wird beim Speichern abgelehnt, die Seite bleibt also heil.', 'sdc-page-builder' ),
@@ -114,9 +99,6 @@ class Sdc_View_Editor {
 		}
 
 		self::render_helpers();
-
-		echo '</details>';
-		echo '</td></tr>';
 	}
 
 	/**

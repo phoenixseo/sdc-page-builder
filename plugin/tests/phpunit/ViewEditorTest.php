@@ -92,29 +92,47 @@ class ViewEditorTest extends Sdc_TestCase {
 	}
 
 	/**
-	 * The panel is shut while fields are being edited.
+	 * The panel is a block, not a row of somebody else's table.
 	 *
-	 * A screen of PHP at the bottom of every component form is noise; the
-	 * view is the exception people come back to, not the default task.
+	 * The tab panel supplies the surroundings now; markup that assumes a
+	 * `form-table` would be printed outside the table by the browser.
 	 */
-	public function test_the_panel_starts_collapsed() {
+	public function test_the_panel_is_a_block() {
 		$html = $this->panel( 'hero', array() );
 
-		$this->assertStringContainsString( '<details>', $html );
-		$this->assertStringNotContainsString( '<details open>', $html );
+		$this->assertStringNotContainsString( '<tr><th', $html );
+		$this->assertStringNotContainsString( '<details', $html );
 	}
 
 	/**
-	 * After the generator ran, the panel is open.
+	 * Which tab is open is the caller's decision, not the panel's.
 	 *
-	 * The body the generator wrote is the answer to the click. Arriving on
-	 * a collapsed panel would hide it again, and the author would have to
-	 * guess whether anything happened.
+	 * After the generator ran, the body it wrote is the answer to the click,
+	 * and the redirect carries the tab that holds it.
 	 */
-	public function test_the_panel_opens_after_generating() {
-		$html = $this->panel( 'hero', $this->text_fields(), true );
+	public function test_a_generated_view_opens_the_view_tab() {
+		$_POST = array(
+			'sdc_type'          => 'hero',
+			'sdc_generate_view' => '1',
+		);
 
-		$this->assertStringContainsString( '<details open>', $html, 'Das Ergebnis des Generators ist sichtbar.' );
+		$args = $this->invoke( 'success_args', 'update' );
+
+		$this->assertSame( 'view', $args['sdc_tab'] );
+	}
+
+	/**
+	 * Same for the stylesheet's scaffold button.
+	 */
+	public function test_a_scaffolded_stylesheet_opens_the_styles_tab() {
+		$_POST = array(
+			'sdc_type'         => 'hero',
+			'sdc_css_scaffold' => '1',
+		);
+
+		$args = $this->invoke( 'success_args', 'update' );
+
+		$this->assertSame( 'styles', $args['sdc_tab'] );
 	}
 
 	/**
@@ -454,12 +472,11 @@ class ViewEditorTest extends Sdc_TestCase {
 	 *
 	 * @param string  $type   Component type.
 	 * @param array[] $fields Field definitions.
-	 * @param bool    $open   Whether the panel starts expanded.
 	 * @return string HTML.
 	 */
-	private function panel( $type, array $fields, $open = false ) {
+	private function panel( $type, array $fields ) {
 		ob_start();
-		Sdc_View_Editor::render( $type, $fields, null, $open );
+		Sdc_View_Editor::render( $type, $fields );
 		return (string) ob_get_clean();
 	}
 

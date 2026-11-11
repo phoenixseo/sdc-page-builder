@@ -1,0 +1,103 @@
+/**
+ * SDC Page Builder — tabs on the component screen.
+ *
+ * Scope: `.sdc-tabs` only. Colours are wp-admin's own palette, so the screen
+ * does not look like a different product bolted into it.
+ */
+
+.sdc-tabs {
+	margin-top: 12px;
+	max-width: 1180px;
+}
+
+.sdc-tabs__nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 2px;
+	margin: 0 0 0;
+	border-bottom: 1px solid #dcdcde;
+}
+
+.sdc-tabs__tab {
+	margin: 0 0 -1px;
+	padding: 9px 16px;
+	border: 1px solid transparent;
+	border-bottom: 0;
+	border-radius: 4px 4px 0 0;
+	background: transparent;
+	color: #50575e;
+	font-size: 14px;
+	line-height: 1.4;
+	cursor: pointer;
+}
+
+.sdc-tabs__tab:hover {
+	color: #2271b1;
+	background: #f6f7f7;
+}
+
+.sdc-tabs__tab:focus-visible {
+	outline: 2px solid #2271b1;
+	outline-offset: -2px;
+}
+
+.sdc-tabs__tab.is-active {
+	border-color: #dcdcde;
+	background: #fff;
+	color: #1d2327;
+	font-weight: 600;
+}
+
+.sdc-tabs__panel {
+	padding: 16px 20px 4px;
+	border: 1px solid #dcdcde;
+	border-top: 0;
+	border-radius: 0 0 4px 4px;
+	background: #fff;
+}
+
+/*
+ * Only once the script has claimed the tabs. Before that every panel shows,
+ * stacked — the fallback for a browser where the script does not run.
+ */
+.sdc-tabs.is-ready .sdc-tabs__panel {
+	display: none;
+}
+
+.sdc-tabs.is-ready .sdc-tabs__panel.is-active {
+	display: block;
+}
+
+.sdc-tabs__title {
+	margin: 0 0 4px;
+	font-size: 15px;
+	line-height: 1.4;
+}
+
+.sdc-tabs__hint {
+	margin: 0 0 12px;
+	color: #50575e;
+}
+
+/* The panel carries its own form-table; drop the table's outer spacing. */
+.sdc-tabs__panel .form-table {
+	margin-top: 0;
+}
+
+.sdc-tabs__panel .form-table > tbody > tr > th {
+	width: 160px;
+	padding-left: 0;
+}
+
+.sdc-tabs__panel .form-table > tbody > tr:first-child > th,
+.sdc-tabs__panel .form-table > tbody > tr:first-child > td {
+	padding-top: 0;
+}
+
+/* ------------------------------------------------------------ code boxes */
+.sdc-tabs__panel textarea.large-text.code {
+	font-family: Consolas, Monaco, monospace;
+	font-size: 13px;
+	line-height: 1.6;
+	tab-size: 4;
+}

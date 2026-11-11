@@ -298,7 +298,12 @@ class Sdc_Field_Editor {
 	}
 
 	/**
-	 * Load the editor on the component screen only.
+	 * Load the component screen's assets.
+	 *
+	 * One hook for the whole screen, because both halves are chrome of the
+	 * same page: the field editor sits in the first tab, the tab machinery in
+	 * between. Two `admin_enqueue_scripts` callbacks for one screen would mean
+	 * two places to look when something on it does not load.
 	 *
 	 * @param string $hook Current admin page.
 	 */
@@ -306,6 +311,21 @@ class Sdc_Field_Editor {
 		if ( 'toplevel_page_' . Sdc_Admin::MENU_SLUG !== $hook ) {
 			return;
 		}
+
+		wp_enqueue_style(
+			'sdc-pb-tabs',
+			SDC_PB_URL . 'assets/admin-tabs.css',
+			array(),
+			self::asset_version( 'assets/admin-tabs.css' )
+		);
+
+		wp_enqueue_script(
+			'sdc-pb-tabs',
+			SDC_PB_URL . 'assets/admin-tabs.js',
+			array(),
+			self::asset_version( 'assets/admin-tabs.js' ),
+			true
+		);
 
 		wp_enqueue_style(
 			'sdc-pb-field-editor',
