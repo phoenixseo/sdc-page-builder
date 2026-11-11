@@ -99,6 +99,245 @@ class MigrationTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * A page that already holds one component block gets the rest of its
+	 * document. This is the defect the card names: page 98 had a document
+	 * `[hero, faq, faq, info, faq3]` and a content holding only the FAQs and
+	 * info — the hero was marked as migrated and never written.
+	 *
+	 * Instance by instance, not type by type: the document has two FAQs and
+	 * the content one, so exactly one FAQ is added, and the hero in front.
+	 */
+	public function test_page_with_one_block_gets_the_missing_components() {
+		$existing = '<!-- wp:sdc/faq {"data":{"heading":"Schon da"}} /-->';
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document(
+			$post_id,
+			array(
+				array_merge( array( '_id' => 'c_hero00001' ), $this->hero_component( 'Der verlorene Hero' ) ),
+				array_merge( array( '_id' => 'c_faq000001' ), $this->faq_component( 'Erster FAQ' ) ),
+				array_merge( array( '_id' => 'c_faq000002' ), $this->faq_component( 'Zweiter FAQ' ) ),
+			)
+		);
+
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+		$this->assertTrue( Sdc_Migration::is_migrated( $post_id ) );
+
+		$blocks = $this->blocks_of( $post_id );
+		$names  = wp_list_pluck( $blocks, 'blockName' );
+
+		$this->assertCount( 3, $blocks );
+		$this->assertSame( array( 'sdc/faq', 'sdc/hero', 'sdc/faq' ), $names );
+
+		// The block that was already there is untouched and stays in place.
+		$content = get_post_field( 'post_content', $post_id, 'raw' );
+		$this->assertStringStartsWith( $existing, $content );
+		$this->assertSame( 1, substr_count( $content, 'Schon da' ) );
+
+		// The FAQ that was added is the second one of the document, not a
+		// copy of the block that was already there.
+		$this->assertSame( 'Zweiter FAQ', $blocks[2]['attrs']['data']['heading'] );
+		$this->assertSame( 'Der verlorene Hero', $blocks[1]['attrs']['data']['heading'] );
+	}
+
+	/**
+	 * The defect, in the shape the card measured: a content that holds some of
+	 * the document's components (two FAQs, no hero) gets the missing one and
+	 * nothing twice. Same type, different instances — matched per instance.
+	 */
+	public function test_page_98_shape_holds_every_component_after_migration() {
+		$existing = implode(
+			"\n\n",
+			array(
+				'<!-- wp:sdc/faq {"data":{"heading":"Häufige Fragen","items":[]}} /-->',
+				'<!-- wp:sdc/faq {"data":{"heading":"Häufige Fragen","items":[]}} /-->',
+			)
+		);
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document(
+			$post_id,
+			array(
+				array_merge( array( '_id' => 'c_hero00001' ), $this->hero_component() ),
+				array_merge( array( '_id' => 'c_faq000001' ), $this->faq_component() ),
+				array_merge( array( '_id' => 'c_faq000002' ), $this->faq_component() ),
+			)
+		);
+
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+
+		$content = get_post_field( 'post_content', $post_id, 'raw' );
+
+		preg_match_all( '#wp:sdc/([a-z0-9_-]+)#', $content, $matches );
+
+		$this->assertSame( array( 'faq', 'faq', 'hero' ), $matches[1] );
+		$this->assertSame( 3, count( $this->blocks_of( $post_id ) ) );
+	}
+
+	/**
+	 * Nothing appears twice: the document that the content already carries
+	 * completely is not written again, and the page is only marked.
+	 */
+	public function test_page_whose_content_holds_the_whole_document_is_only_marked() {
+		$existing = '<!-- wp:sdc/faq {"data":{"heading":"Aus dem Editor"}} /-->';
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document( $post_id, array( $this->faq_component( 'Aus der Metabox' ) ) );
+
+		$revisions = count( wp_get_post_revisions( $post_id ) );
+
+		$this->assertFalse( Sdc_Migration::migrate_post( $post_id ) );
+		$this->assertSame( $existing, get_post_field( 'post_content', $post_id, 'raw' ) );
+		$this->assertTrue( Sdc_Migration::is_migrated( $post_id ) );
+		$this->assertSame( 1, substr_count( get_post_field( 'post_content', $post_id, 'raw' ), 'wp:sdc/faq' ) );
+		$this->assertSame( $revisions, count( wp_get_post_revisions( $post_id ) ) );
+	}
+
+	/**
+	 * A block type the document does not know (added in the editor after the
+	 * metabox was written) is left where it is. The migration only adds.
+	 */
+	public function test_unknown_block_in_content_is_kept() {
+		$existing = implode(
+			"\n\n",
+			array(
+				'<!-- wp:sdc/faq {"data":{"heading":"Aus dem Editor"}} /-->',
+				'<!-- wp:sdc/extra {"data":{"heading":"Nur im Editor"}} /-->',
+			)
+		);
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document(
+			$post_id,
+			array(
+				array_merge( array( '_id' => 'c_hero00001' ), $this->hero_component() ),
+				array_merge( array( '_id' => 'c_faq000001' ), $this->faq_component( 'Aus der Metabox' ) ),
+				array_merge( array( '_id' => 'c_faq000002' ), $this->faq_component( 'Zweiter aus der Metabox' ) ),
+			)
+		);
+
+		Sdc_Migration::migrate_post( $post_id );
+
+		$content = get_post_field( 'post_content', $post_id, 'raw' );
+
+		$this->assertSame( 1, substr_count( $content, 'Nur im Editor' ) );
+		$this->assertStringContainsString( '<!-- wp:sdc/extra ', $content );
+
+		// faq (editor) + extra (editor) + hero + the second faq.
+		$names = wp_list_pluck( $this->blocks_of( $post_id ), 'blockName' );
+
+		$this->assertSame( array( 'sdc/faq', 'sdc/extra', 'sdc/hero', 'sdc/faq' ), $names );
+	}
+
+	/**
+	 * The migration only appends: text and blocks the author wrote stay in
+	 * front of the appended components, in their order.
+	 */
+	public function test_existing_blocks_keep_their_order() {
+		$existing = implode(
+			"\n\n",
+			array(
+				'<!-- wp:paragraph -->',
+				'<p>Einleitung</p>',
+				'<!-- /wp:paragraph -->',
+				'<!-- wp:sdc/faq {"data":{"heading":"Erster FAQ"}} /-->',
+			)
+		);
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document(
+			$post_id,
+			array(
+				array_merge( array( '_id' => 'c_faq000001' ), $this->faq_component( 'Erster FAQ' ) ),
+				array_merge( array( '_id' => 'c_hero00001' ), $this->hero_component( 'Der Hero' ) ),
+			)
+		);
+
+		Sdc_Migration::migrate_post( $post_id );
+
+		$blocks = $this->blocks_of( $post_id );
+
+		$this->assertSame(
+			array( 'core/paragraph', 'sdc/faq', 'sdc/hero' ),
+			wp_list_pluck( $blocks, 'blockName' )
+		);
+		$this->assertSame( 'Erster FAQ', $blocks[1]['attrs']['data']['heading'] );
+		$this->assertSame( 'Der Hero', $blocks[2]['attrs']['data']['heading'] );
+	}
+
+	/**
+	 * A page without content blocks but with a document is migrated even when
+	 * it carries the marker — the marker alone is not evidence that the
+	 * components were ever written.
+	 */
+	public function test_marked_page_without_blocks_is_still_migrated() {
+		$post_id = $this->make_page( array( 'post_content' => 'Nur Text' ) );
+		$this->old_document( $post_id, array( $this->faq_component( 'Nachgeholt' ) ) );
+
+		update_post_meta( $post_id, Sdc_Migration::META_KEY, Sdc_Migration::VERSION );
+
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+
+		$content = get_post_field( 'post_content', $post_id, 'raw' );
+
+		$this->assertStringContainsString( 'Nachgeholt', $content );
+		$this->assertStringStartsWith( 'Nur Text', $content );
+		$this->assertCount( 1, $this->blocks_of( $post_id ) );
+	}
+
+	/**
+	 * A page that already carries components is completed, not just marked —
+	 * this is the state the broken run left on page 98: marked migrated, a
+	 * component missing from the content. The marker is the thing that made
+	 * the loss permanent, so it cannot stand in for the content.
+	 */
+	public function test_marked_page_with_a_missing_component_is_completed() {
+		$existing = '<!-- wp:sdc/faq {"data":{"heading":"Schon da"}} /-->';
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document(
+			$post_id,
+			array(
+				array_merge( array( '_id' => 'c_hero00001' ), $this->hero_component() ),
+				array_merge( array( '_id' => 'c_faq000001' ), $this->faq_component( 'Schon da' ) ),
+			)
+		);
+
+		update_post_meta( $post_id, Sdc_Migration::META_KEY, Sdc_Migration::VERSION );
+
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+
+		$this->assertSame(
+			array( 'sdc/faq', 'sdc/hero' ),
+			wp_list_pluck( $this->blocks_of( $post_id ), 'blockName' )
+		);
+	}
+
+	/**
+	 * A page carrying blocks without the marker is completed in one call, and
+	 * only once: the second call must not write what the first one wrote.
+	 */
+	public function test_page_with_blocks_is_completed_once() {
+		$existing = '<!-- wp:sdc/faq {"data":{"heading":"Schon da"}} /-->';
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document(
+			$post_id,
+			array(
+				array_merge( array( '_id' => 'c_hero00001' ), $this->hero_component() ),
+				array_merge( array( '_id' => 'c_faq000001' ), $this->faq_component( 'Schon da' ) ),
+			)
+		);
+
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+		$this->assertTrue( Sdc_Migration::is_migrated( $post_id ) );
+
+		$first = get_post_field( 'post_content', $post_id, 'raw' );
+
+		$this->assertSame( 2, count( $this->blocks_of( $post_id ) ) );
+		$this->assertSame( 1, substr_count( $first, 'Schon da' ) );
+
+		$revisions = count( wp_get_post_revisions( $post_id ) );
+
+		$this->assertFalse( Sdc_Migration::migrate_post( $post_id ) );
+		$this->assertSame( $first, get_post_field( 'post_content', $post_id, 'raw' ) );
+		$this->assertSame( $revisions, count( wp_get_post_revisions( $post_id ) ) );
+	}
+
+	/**
 	 * Running twice changes nothing the second time — a page is opened in the
 	 * editor far more often than it is built.
 	 */
@@ -108,25 +347,38 @@ class MigrationTest extends Sdc_TestCase {
 
 		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
 
-		$first = get_post_field( 'post_content', $post_id, 'raw' );
+		$first     = get_post_field( 'post_content', $post_id, 'raw' );
+		$revisions = count( wp_get_post_revisions( $post_id ) );
 
 		$this->assertFalse( Sdc_Migration::migrate_post( $post_id ) );
 		$this->assertSame( $first, get_post_field( 'post_content', $post_id, 'raw' ) );
 		$this->assertCount( 1, $this->blocks_of( $post_id ) );
+		$this->assertSame( $revisions, count( wp_get_post_revisions( $post_id ) ) );
 	}
 
 	/**
-	 * A page that already holds builder blocks is only marked. Appending the
-	 * document would print the same components a second time.
+	 * The second run must not write at all — a revision on every editor load
+	 * would be a write per page view in the admin.
 	 */
-	public function test_page_that_already_has_blocks_is_only_marked() {
-		$existing = '<!-- wp:sdc/faq {"data":{"heading":"Schon da"}} /-->';
-		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
-		$this->old_document( $post_id, array( $this->faq_component( 'Aus der Metabox' ) ) );
+	public function test_second_run_does_not_write_the_post() {
+		$post_id = $this->make_page();
+		$this->old_document( $post_id, array( $this->faq_component() ) );
+
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+
+		$writes = 0;
+		$count  = function ( $value ) use ( &$writes ) {
+			++$writes;
+			return $value;
+		};
+
+		add_filter( 'content_save_pre', $count );
 
 		$this->assertFalse( Sdc_Migration::migrate_post( $post_id ) );
-		$this->assertSame( $existing, get_post_field( 'post_content', $post_id, 'raw' ) );
-		$this->assertTrue( Sdc_Migration::is_migrated( $post_id ) );
+
+		remove_filter( 'content_save_pre', $count );
+
+		$this->assertSame( 0, $writes, 'The second run must not save the post.' );
 	}
 
 	/**
