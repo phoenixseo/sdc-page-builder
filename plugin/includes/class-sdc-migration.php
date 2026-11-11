@@ -25,9 +25,19 @@
  * Two paths run the migration, for the same reason: the editor fetches its
  * content over REST, and only some setups still render through `post.php`.
  * Whichever comes first wins; the marker makes the second call a no-op.
- * `post_content` is the source of truth on a migrated page, so even after the
- * marker was set the missing components are still appended once — a page that
- * never reached the editor is healed before it is shown or saved again.
+ *
+ * On a marked page the marker alone is not evidence: the broken run set it
+ * while a component was still missing. The page is therefore still read —
+ * one parse of the document, no write — and components without a block are
+ * appended then. [`Sdc_Migration::missing_types()`] is that read; the repair
+ * command pairs it with [`Sdc_Migration::migrate_post()`] as its dry run, so
+ * report and write cannot drift apart.
+ *
+ * `--force` is the other direction: on a marked page the automatic run stops
+ * as soon as the content holds any builder block, because `post_content` is
+ * the source of truth from then on — a block the author deleted in the editor
+ * must not come back on the next page load. An explicit repair call passes
+ * `$force` and is read fully.
  *
  * @package SdcPageBuilder
  */
@@ -120,12 +130,17 @@ class Sdc_Migration {
 	}
 
 	/**
-	 * Turn one post's document into blocks, once.
+	 * Turn one post's document into blocks.
 	 *
-	 * @param int  $post_id  Post ID.
-	 * @param bool $force    Re-read the content even when the page is marked
-	 *                       migrated. Used by the repair command; the write is
-	 *                       still limited to components without a block.
+	 * @param int  $post_id Post ID.
+	 * @param bool $force    Read a marked page through, even when its content
+	 *                       already carries builder blocks. The automatic
+	 *                       hooks do not pass this: on a page that has been
+	 *                       through the editor, `post_content` decides, and
+	 *                       a block the author deleted stays deleted. Only an
+	 *                       explicit repair (`wp sdc-pb repair --apply`)
+	 *                       passes it, and the write is still limited to
+	 *                       components without a block.
 	 * @return bool Whether this call changed the post.
 	 */
 	public static function migrate_post( $post_id, $force = false ) {
@@ -139,46 +154,23 @@ class Sdc_Migration {
 		$migrated = self::is_migrated( $post_id );
 		$content  = (string) $post->post_content;
 
-		// Marked and the content holds no builder block at all: nothing was
-		// ever written, so there is nothing to check against. A page that
-		// does hold blocks is read through — those are the pages the broken
-		// run marked while a component was still missing from the content,
-		// and the marker is precisely what made that loss permanent.
-		// A page marked with content but no block was marked by an older run
-		// as well; it is treated like one carrying blocks, so the repair
-		// reaches it too. The check is one parse of the document, no write.
-		if ( $migrated && ! $force && '' === trim( $content ) ) {
+		// Marked and the automatic run: the page has been through the editor,
+		// so its content is the source of truth. Reading the document again
+		// here would re-append every block the author has since deleted —
+		// an editor save would resurrect them. A page marked while its
+		// content holds no builder block was marked by a run that never
+		// wrote anything, and is still read below.
+		if ( $migrated && ! $force && self::has_blocks( $content ) ) {
 			return false;
 		}
 
-		$document   = Sdc_Store::get_data( $post_id );
-		$components = isset( $document['components'] ) && is_array( $document['components'] )
-			? $document['components']
-			: array();
-
-		if ( empty( $components ) ) {
-			// Nothing to move. Marking here is what keeps this from running a
-			// query per editor load for every page on the site.
-			if ( ! $migrated ) {
-				update_post_meta( $post_id, self::META_KEY, self::VERSION );
-			}
-			return false;
-		}
-
-		/*
-		 * Content that already holds components keeps them, and keeps them
-		 * where they are: the author placed them in the editor. But it does
-		 * not keep the page from receiving the rest of its document — this
-		 * used to mark the page as done and walk away, which is what made the
-		 * hero of page 98 vanish. Every component without a block of its own
-		 * is appended below the existing content, in document order.
-		 */
-		$missing = self::missing_markup( $content, $components );
+		$missing = self::missing_markup( $content, self::document_components( $post_id ) );
 
 		if ( '' === $missing ) {
-			// The content carries the whole document (the normal state after a
-			// page has been through the editor), so there is nothing to write:
-			// the run only has to remember that it looked.
+			// The content carries the whole document (the normal state after
+			// the page has been through the editor), or there is no document
+			// to move at all. Nothing to write: the run only has to remember
+			// that it looked.
 			if ( ! $migrated ) {
 				update_post_meta( $post_id, self::META_KEY, self::VERSION );
 			}
@@ -228,6 +220,78 @@ class Sdc_Migration {
 	 */
 	public static function is_migrated( $post_id ) {
 		return (int) get_post_meta( (int) $post_id, self::META_KEY, true ) >= self::VERSION;
+	}
+
+	/**
+	 * Components of a page that have no builder block in the content.
+	 *
+	 * The same read the migration does, without writing anything — the repair
+	 * command's dry run. `wp sdc-pb repair` and `wp sdc-pb repair --apply`
+	 * therefore report and write the same list; a second implementation of
+	 * the comparison would be free to disagree with the one that writes.
+	 *
+	 * It ignores the marker on purpose: a page marked by the broken run is
+	 * exactly the page this is asked about.
+	 *
+	 * Compared as a multiset, not position by position: a page whose document
+	 * lists `[hero, faq]` and whose content already carries a `faq` block is
+	 * one component short (the hero), not two. A positional comparison
+	 * (`array_diff_assoc()`) reports the `faq` as missing as well, because its
+	 * index moved — and `--apply` would then append a block for a component
+	 * that is already on the page.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return string[] Component types without a block, in document order; may
+	 *                  repeat. Empty when the page holds its whole document,
+	 *                  has no document, or is not a builder post type.
+	 */
+	public static function missing_types( $post_id ) {
+		$post_id = (int) $post_id;
+		$post    = $post_id > 0 ? get_post( $post_id ) : null;
+
+		if ( ! $post || ! in_array( $post->post_type, Sdc_Editor::post_types(), true ) ) {
+			return array();
+		}
+
+		$types = array();
+
+		foreach ( self::document_components( $post_id ) as $component ) {
+			if ( is_array( $component ) && ! empty( $component['type'] ) ) {
+				$types[] = (string) $component['type'];
+			}
+		}
+
+		if ( empty( $types ) ) {
+			return array();
+		}
+
+		$present = array_count_values( self::types_in_content( (string) $post->post_content ) );
+		$missing = array();
+
+		foreach ( $types as $type ) {
+			if ( ! empty( $present[ $type ] ) ) {
+				--$present[ $type ];
+				continue;
+			}
+
+			$missing[] = $type;
+		}
+
+		return $missing;
+	}
+
+	/**
+	 * Components of a post's document, in document order.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return array[] Components; empty when the page has no document.
+	 */
+	private static function document_components( $post_id ) {
+		$document = Sdc_Store::get_data( $post_id );
+
+		return isset( $document['components'] ) && is_array( $document['components'] )
+			? $document['components']
+			: array();
 	}
 
 	/**

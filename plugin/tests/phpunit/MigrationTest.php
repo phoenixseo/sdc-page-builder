@@ -261,17 +261,17 @@ class MigrationTest extends Sdc_TestCase {
 	}
 
 	/**
-	 * A page without content blocks but with a document is migrated even when
-	 * it carries the marker — the marker alone is not evidence that the
-	 * components were ever written.
+	 * A page without content blocks but with a document is completed by the
+	 * forced run — repair is the only caller that passes `$force`, because the
+	 * marker alone is not evidence that the components were ever written.
 	 */
-	public function test_marked_page_without_blocks_is_still_migrated() {
+	public function test_forced_run_completes_a_marked_page_without_content() {
 		$post_id = $this->make_page( array( 'post_content' => 'Nur Text' ) );
 		$this->old_document( $post_id, array( $this->faq_component( 'Nachgeholt' ) ) );
 
 		update_post_meta( $post_id, Sdc_Migration::META_KEY, Sdc_Migration::VERSION );
 
-		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id, true ) );
 
 		$content = get_post_field( 'post_content', $post_id, 'raw' );
 
@@ -281,12 +281,13 @@ class MigrationTest extends Sdc_TestCase {
 	}
 
 	/**
-	 * A page that already carries components is completed, not just marked —
+	 * A page that already carries components is completed by the forced run —
 	 * this is the state the broken run left on page 98: marked migrated, a
 	 * component missing from the content. The marker is the thing that made
-	 * the loss permanent, so it cannot stand in for the content.
+	 * the loss permanent, so it cannot stand in for the content; what reaches
+	 * such a page is the repair command, and it passes `$force`.
 	 */
-	public function test_marked_page_with_a_missing_component_is_completed() {
+	public function test_forced_run_completes_a_marked_page_with_a_missing_component() {
 		$existing = '<!-- wp:sdc/faq {"data":{"heading":"Schon da"}} /-->';
 		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
 		$this->old_document(
@@ -299,12 +300,43 @@ class MigrationTest extends Sdc_TestCase {
 
 		update_post_meta( $post_id, Sdc_Migration::META_KEY, Sdc_Migration::VERSION );
 
-		$this->assertTrue( Sdc_Migration::migrate_post( $post_id ) );
+		$this->assertTrue( Sdc_Migration::migrate_post( $post_id, true ) );
 
 		$this->assertSame(
 			array( 'sdc/faq', 'sdc/hero' ),
 			wp_list_pluck( $this->blocks_of( $post_id ), 'blockName' )
 		);
+	}
+
+	/**
+	 * A block the author deleted in the editor stays deleted.
+	 *
+	 * Once a page is marked and its content carries builder blocks, the
+	 * content is the source of truth: the document is only the backup. A run
+	 * that reads it again would append the deleted block behind the author's
+	 * back on the next editor load — the deletion would never hold.
+	 */
+	public function test_deleted_block_is_not_resurrected_on_a_marked_page() {
+		$existing = '<!-- wp:sdc/faq {"data":{"heading":"Bleibt"}} /-->';
+		$post_id  = $this->make_page( array( 'post_content' => $existing ) );
+		$this->old_document(
+			$post_id,
+			array(
+				array_merge( array( '_id' => 'c_hero00001' ), $this->hero_component( 'Gelöscht' ) ),
+				array_merge( array( '_id' => 'c_faq000001' ), $this->faq_component( 'Bleibt' ) ),
+			)
+		);
+		update_post_meta( $post_id, Sdc_Migration::META_KEY, Sdc_Migration::VERSION );
+
+		// The fixture writes meta through save_data(), which saves a revision
+		// itself. The baseline is the count after the fixture, not zero.
+		$revisions = count( wp_get_post_revisions( $post_id ) );
+
+		$this->assertFalse( Sdc_Migration::migrate_post( $post_id ) );
+
+		$this->assertSame( $existing, get_post_field( 'post_content', $post_id, 'raw' ) );
+		$this->assertSame( array( 'sdc/faq' ), wp_list_pluck( $this->blocks_of( $post_id ), 'blockName' ) );
+		$this->assertSame( $revisions, count( wp_get_post_revisions( $post_id ) ), 'A deletion must not trigger a write.' );
 	}
 
 	/**

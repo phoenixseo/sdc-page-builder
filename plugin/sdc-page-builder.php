@@ -72,6 +72,7 @@ require_once SDC_PB_DIR . 'includes/class-sdc-admin.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-frontend.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-block.php';
 require_once SDC_PB_DIR . 'includes/class-sdc-migration.php';
+require_once SDC_PB_DIR . 'includes/class-sdc-repair.php';
 
 /**
  * Load the plugin's translations.

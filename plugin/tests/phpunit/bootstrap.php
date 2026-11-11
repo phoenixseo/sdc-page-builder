@@ -43,6 +43,16 @@ define( 'WP_TESTS_CONFIG_FILE_PATH', __DIR__ . '/wp-tests-config.php' );
 // this file itself, but only after we have already needed the helper.
 require_once $sdc_tests_dir . '/includes/functions.php';
 
+/*
+ * The repair command is defined only when `WP_CLI` is set, so the suite
+ * provides it before the plugin boots. Without this the plugin's own include
+ * of `class-sdc-repair.php` sees no WP-CLI, skips the class, and the file is
+ * already in `require_once`'s map — a later load is a no-op whatever the
+ * constant says. The stub records the report instead of printing it (see
+ * `tests/phpunit/class-wp-cli-stub.php`); `add_command` does nothing.
+ */
+require_once __DIR__ . '/class-wp-cli-stub.php';
+
 $sdc_plugin_dir = dirname( __DIR__, 2 );
 
 // The plugin lives outside the WordPress tree during tests; link it in so that
