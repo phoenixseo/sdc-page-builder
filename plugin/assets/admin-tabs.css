@@ -101,3 +101,76 @@
 	line-height: 1.6;
 	tab-size: 4;
 }
+
+/* --------------------------------------------------------------- credit */
+/* Sits under the screen's own content, separated by a rule — a credit that
+   looks like part of the form gets read as a setting. */
+.sdc-credit {
+	max-width: 900px;
+	margin: 28px 0 0;
+	padding-top: 16px;
+	border-top: 1px solid #dcdcde;
+	color: #50575e;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.sdc-credit__text {
+	margin: 0 0 6px;
+}
+
+.sdc-credit__text a {
+	color: inherit;
+	text-decoration: none;
+}
+
+.sdc-credit__text a:hover,
+.sdc-credit__text a:focus {
+	color: #2271b1;
+	text-decoration: underline;
+}
+
+.sdc-credit__host {
+	color: #787c82;
+}
+
+.sdc-credit__roles {
+	margin: 0 0 10px;
+	padding: 0;
+	list-style: none;
+}
+
+.sdc-credit__roles li {
+	margin: 0;
+}
+
+.sdc-credit__role {
+	display: inline-block;
+	min-width: 132px;
+	color: #1d2327;
+}
+
+.sdc-credit__meta {
+	margin: 0 0 12px;
+	color: #787c82;
+}
+
+.sdc-credit__button {
+	display: inline-block;
+	padding: 5px 14px;
+	border: 1px solid #c3c4c7;
+	border-radius: 999px;
+	background: #fff;
+	color: #1d2327;
+	font-size: 13px;
+	font-weight: 600;
+	line-height: 1.6;
+	text-decoration: none;
+}
+
+.sdc-credit__button:hover,
+.sdc-credit__button:focus {
+	border-color: #2271b1;
+	background: #f6f7f7;
+	color: #2271b1;
+}

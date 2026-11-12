@@ -1388,6 +1388,96 @@ class AdminTest extends Sdc_TestCase {
 	}
 
 	/**
+	 * The credit block's markup.
+	 *
+	 * @return string
+	 */
+	private function credit_html() {
+		ob_start();
+		Sdc_Admin::credit();
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The credit names the author, links their site and the donation page.
+	 *
+	 * Three facts that are worthless apart: a name with no site, a button
+	 * with no URL, or a URL that points somewhere else than the button
+	 * claims. Asserted through the constants so the header and the credit
+	 * cannot drift apart.
+	 */
+	public function test_credit_names_the_author_and_links_both_targets() {
+		$html = $this->credit_html();
+
+		$this->assertStringContainsString( 'href="' . Sdc_Admin::AUTHOR_URL . '"', $html );
+		$this->assertStringContainsString( esc_html( Sdc_Admin::AUTHOR_NAME ), $html );
+		$this->assertStringContainsString( esc_html( Sdc_Admin::AUTHOR_HOST ), $html );
+		$this->assertStringContainsString( 'href="' . Sdc_Admin::COFFEE_URL . '"', $html );
+		$this->assertStringContainsString( esc_html__( 'Spendier mir einen Kaffee', 'sdc-page-builder' ), $html );
+	}
+
+	/**
+	 * Both links open outside the admin and hand over no referrer.
+	 *
+	 * A `target="_blank"` without `rel` leaks the admin URL to the target
+	 * site; every tab opened from this screen must carry the pair.
+	 */
+	public function test_credit_links_are_rel_safe() {
+		$html = $this->credit_html();
+
+		$found = preg_match_all( '/<a\b[^>]*target="_blank"[^>]*>/', $html, $matches );
+
+		$this->assertSame( 2, $found, 'expected the author link and the donation button' );
+		$this->assertSame( 2, substr_count( $html, 'target="_blank"' ) );
+
+		foreach ( $matches[0] as $tag ) {
+			$this->assertStringContainsString( 'rel="noopener noreferrer"', $tag );
+		}
+	}
+
+	/**
+	 * Concept and programming are credited, with the month the work was done.
+	 */
+	public function test_credit_records_who_did_what() {
+		$html = $this->credit_html();
+
+		$this->assertStringContainsString( esc_html__( 'Vision und Konzept', 'sdc-page-builder' ), $html );
+		$this->assertStringContainsString( esc_html( 'Frank Pfabigan und Athena' ), $html );
+		$this->assertStringContainsString( esc_html__( 'Programmierung', 'sdc-page-builder' ), $html );
+		$this->assertStringContainsString( esc_html( "Athena's Crew, Neo, Judge" ), $html );
+		$this->assertStringContainsString( esc_html__( 'November 2026', 'sdc-page-builder' ), $html );
+	}
+
+	/**
+	 * The whole block disappears when filtered away.
+	 *
+	 * An agency shipping this white-label must be able to remove the credit,
+	 * and removing it must not leave an empty bordered box behind.
+	 */
+	public function test_credit_can_be_switched_off_completely() {
+		add_filter( 'sdc_pb_credit', '__return_empty_string' );
+		$html = $this->credit_html();
+		remove_filter( 'sdc_pb_credit', '__return_empty_string' );
+
+		$this->assertSame( '', $html );
+	}
+
+	/**
+	 * The screen actually renders it — a credit nobody sees is not a credit.
+	 */
+	public function test_catalogue_screen_carries_the_credit() {
+		wp_set_current_user( self::factory()->user->create( array( 'role' => 'administrator' ) ) );
+
+		ob_start();
+		Sdc_Admin::render();
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'class="sdc-credit"', $html );
+		$this->assertStringContainsString( 'href="' . Sdc_Admin::COFFEE_URL . '"', $html );
+	}
+
+	/**
 	 * Call a private static method of Sdc_Admin.
 	 *
 	 * @param string $method Method name.

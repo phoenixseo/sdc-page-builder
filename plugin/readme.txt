@@ -7,6 +7,7 @@ Requires PHP: 7.4
 Stable tag: 0.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Donate link: https://ko-fi.com/phoenixseo
 
 Reusable page components as native blocks: pick one from the inserter, edit its fields in the sidebar, see the real markup in the canvas.
 
@@ -124,6 +125,9 @@ component catalogue will be added in the next release.
 == Changelog ==
 
 = 0.2.0 =
+* New: the component screen carries a credit line with the author's site and a
+  donation link. Sites that resell the plugin can remove it with the
+  `sdc_pb_credit` filter; it appears only on this plugin's own screen.
 * Fixed: converting a pre-block page to blocks could drop components. The
   conversion now adds each missing component instance instead of only flagging
   the page as converted, so a page never loses a component on its way from the

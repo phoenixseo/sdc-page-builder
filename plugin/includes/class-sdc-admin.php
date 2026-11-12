@@ -43,6 +43,32 @@ class Sdc_Admin {
 	const CAPABILITY = 'manage_options';
 
 	/**
+	 * Author shown in the credit line and in the plugin header.
+	 *
+	 * A constant, because the same name appears in three places (header,
+	 * credit, readme) and a typo in one of them is not visible anywhere.
+	 */
+	const AUTHOR_NAME = 'PHOENIXSEO – Frank Pfabigan';
+
+	/**
+	 * Author website, linked from the credit line.
+	 */
+	const AUTHOR_URL = 'https://phoenixseo.de';
+
+	/**
+	 * Host shown next to the author name, so the link target is readable
+	 * without hovering it.
+	 */
+	const AUTHOR_HOST = 'phoenixseo.de';
+
+	/**
+	 * Donation page. wp.org allows a Donate link header and a button on the
+	 * plugin's own screen; it does not allow chasing the user across the
+	 * admin, which is why this is rendered here and nowhere else.
+	 */
+	const COFFEE_URL = 'https://ko-fi.com/phoenixseo';
+
+	/**
 	 * Notice code per task — the past participle the message table uses.
 	 *
 	 * The task name and its success message are two vocabularies
@@ -436,7 +462,79 @@ class Sdc_Admin {
 		self::render_create_form( $writable );
 		self::render_import_form( $writable );
 
+		self::credit();
+
 		echo '</div>';
+	}
+
+	/**
+	 * Author credit and donation button, under the plugin's own content.
+	 *
+	 * Deliberately not an admin notice and not a site-wide admin footer: the
+	 * screen belongs to the site owner, and a plugin that brands every other
+	 * screen is the behaviour wp.org's guidelines call hijacking the admin.
+	 *
+	 * Filterable because an agency may ship this white-label — returning an
+	 * empty string from `sdc_pb_credit` removes the whole block, not just its
+	 * text, so no empty bordered box is left behind.
+	 */
+	public static function credit() {
+		$author = sprintf(
+			'<a href="%1$s" target="_blank" rel="noopener noreferrer">%2$s <span class="sdc-credit__host">%3$s</span></a>',
+			esc_url( self::AUTHOR_URL ),
+			esc_html( self::AUTHOR_NAME ),
+			esc_html( self::AUTHOR_HOST )
+		);
+
+		/*
+		 * Names stay untranslated — they are names. Only the role labels are
+		 * strings, so a translated screen reads "Programming: …" with the
+		 * people unchanged.
+		 */
+		$roles = array(
+			array(
+				'label' => __( 'Vision und Konzept', 'sdc-page-builder' ),
+				'names' => 'Frank Pfabigan und Athena',
+			),
+			array(
+				'label' => __( 'Programmierung', 'sdc-page-builder' ),
+				'names' => "Athena's Crew, Neo, Judge",
+			),
+		);
+
+		$list = '';
+		foreach ( $roles as $role ) {
+			$list .= sprintf(
+				'<li><span class="sdc-credit__role">%1$s</span> %2$s</li>',
+				esc_html( $role['label'] ),
+				esc_html( $role['names'] )
+			);
+		}
+
+		$html = sprintf(
+			'<div class="sdc-credit">' .
+				'<p class="sdc-credit__text">%1$s</p>' .
+				'<ul class="sdc-credit__roles">%2$s</ul>' .
+				'<p class="sdc-credit__meta">%3$s</p>' .
+				'<a class="sdc-credit__button" href="%4$s" target="_blank" rel="noopener noreferrer">%5$s</a>' .
+			'</div>',
+			sprintf(
+				/* translators: %s: plugin author name, linked to their website. */
+				esc_html__( 'Ein Plugin von %s', 'sdc-page-builder' ),
+				$author // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped piece by piece above.
+			),
+			$list, // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped per item above.
+			esc_html__( 'November 2026', 'sdc-page-builder' ),
+			esc_url( self::COFFEE_URL ),
+			esc_html__( 'Spendier mir einen Kaffee', 'sdc-page-builder' )
+		);
+
+		/**
+		 * Filter the credit line under the component screen.
+		 *
+		 * @param string $html Credit markup, or an empty string to hide it.
+		 */
+		echo wp_kses_post( (string) apply_filters( 'sdc_pb_credit', $html ) );
 	}
 
 	/**
@@ -854,6 +952,7 @@ class Sdc_Admin {
 				esc_html__( 'Diese Komponente liegt nicht in wp-content/sdc-components/. Theme- und Plugin-Komponenten sind schreibgeschützt, weil der nächste Deploy die Änderung überschreiben würde. Dupliziere sie, um sie hier zu bearbeiten.', 'sdc-page-builder' )
 			);
 			printf( '<p><a class="button" href="%s">%s</a></p>', esc_url( self::catalog_url() ), esc_html__( 'Zurück zur Übersicht', 'sdc-page-builder' ) );
+			self::credit();
 			return;
 		}
 
@@ -912,6 +1011,8 @@ class Sdc_Admin {
 		submit_button( __( 'Komponente speichern', 'sdc-page-builder' ) );
 		printf( '<p><a href="%s">%s</a></p>', esc_url( self::catalog_url() ), esc_html__( 'Abbrechen', 'sdc-page-builder' ) );
 		echo '</form>';
+
+		self::credit();
 	}
 
 	/**
