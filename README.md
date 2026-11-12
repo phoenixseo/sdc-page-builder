@@ -2,7 +2,7 @@
 
 Ein komponentenbasierter Page-Builder für WordPress, der **Advanced Custom Fields** und **Secure Custom Fields** als Feld-Lieferanten nutzt — und Seiten in einem einzigen JSON-Dokument speichert.
 
-**Status: 0.1.0.** Editor, Speicherung, Frontend-Ausgabe, Revisionen und Import/Export stehen und sind gemessen. Offen ist die Freigabe für WordPress.org sowie Live-Vorschau und Undo im Editor.
+**Status: 0.2.0.** Editor, Speicherung, Frontend-Ausgabe, Revisionen und Import/Export stehen und sind gemessen: 339 Tests / 1825 Assertions auf WordPress 7.1.4 **und** auf der erklärten Mindestversion 6.4.14, PHPCS ohne Befund, readme.txt formal konform. Offen sind Screenshots und die Freigabe im WordPress.org-Review.
 
 ## Warum es das gibt
 

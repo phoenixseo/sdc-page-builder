@@ -22,3 +22,9 @@ sdc-page-builder.zip
 
 # Recherche-Belege bleiben im Repo, aber nichts Generiertes
 _research/tmp/
+
+# Interne Arbeitsberichte bleiben lokal, das Repo ist öffentlich
+K7-RELEASE-BERICHT.md
+
+# Zwischenablage für Screenshot-Aufnahmen
+shots/
