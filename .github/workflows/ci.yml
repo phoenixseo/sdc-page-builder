@@ -102,6 +102,105 @@ jobs:
           export SDC_TEST_ACF_ZIP=/tmp/acf-free/advanced-custom-fields
           vendor/bin/phpunit
 
+  # readme.txt and the plugin header both promise "Requires at least: 6.4".
+  # A promise nothing runs on is a guess: WordPress removes and deprecates APIs
+  # between majors, so this job boots the *declared minimum* core and runs the
+  # same suite there. The version is read from the header, never typed here —
+  # raising the minimum moves this job with it instead of leaving a stale job
+  # that keeps passing against a version the plugin no longer supports.
+  min-wp:
+    name: Declared minimum WordPress
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wp_tests
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      SDC_TEST_DB_HOST: 127.0.0.1:3306
+      SDC_TEST_DB_NAME: wp_tests
+      SDC_TEST_DB_USER: root
+      SDC_TEST_DB_PASSWORD: root
+      SDC_TEST_HOST_PLUGIN: acf
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # The minimum PHP too: the minimum core is the entry point a reviewer
+          # on an old host reaches for, and that host also runs an old PHP.
+          php-version: '7.4'
+          extensions: mbstring, intl, mysqli, zip, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: plugin
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Stage the minimum core and its test library
+        id: core
+        run: |
+          set -euo pipefail
+          MIN="$(sed -n 's/^ \* Requires at least: *//p' plugin/sdc-page-builder.php | head -1)"
+          if [ -z "$MIN" ]; then
+            echo "No 'Requires at least' in the plugin header." >&2
+            exit 1
+          fi
+          echo "header declares: $MIN"
+
+          # A separate vendor tree, so the current core the other job uses is
+          # untouched. The installer plugin must be allowed up front: an
+          # interactive prompt in CI fails the job with a message about
+          # plugins rather than about WordPress.
+          mkdir -p /tmp/wpmin
+          cat > /tmp/wpmin/composer.json <<JSON
+          {
+            "config": {
+              "allow-plugins": { "roots/wordpress-core-installer": true },
+              "platform": { "php": "7.4.33" }
+            }
+          }
+          JSON
+          composer require --dev --no-interaction --no-progress --working-dir=/tmp/wpmin \
+            "roots/wordpress:${MIN}.*" "wp-phpunit/wp-phpunit:${MIN}.*"
+
+          CORE="$(sed -n "s/^\$wp_version = '\(.*\)';/\1/p" /tmp/wpmin/wordpress/wp-includes/version.php)"
+          if [ -z "$CORE" ]; then
+            echo "No core staged in /tmp/wpmin/wordpress." >&2
+            exit 1
+          fi
+          echo "staged core: $CORE"
+          echo "core=$CORE" >> "$GITHUB_OUTPUT"
+
+      - name: PHPUnit on the minimum core
+        working-directory: plugin
+        # HarnessTest reads the same header and fails the suite if the booted
+        # core is older than the promise, so a fallback to another core cannot
+        # pass silently.
+        env:
+          SDC_TEST_WP_DIR: /tmp/wpmin/wordpress
+          WP_TESTS_DIR: /tmp/wpmin/vendor/wp-phpunit/wp-phpunit
+        run: |
+          echo "core under test: ${{ steps.core.outputs.core }}"
+          mkdir -p /tmp/acf-free
+          curl -fsSL -o /tmp/acf.zip https://downloads.wordpress.org/plugin/advanced-custom-fields.6.8.10.zip
+          unzip -q /tmp/acf.zip -d /tmp/acf-free
+          export SDC_TEST_ACF_ZIP=/tmp/acf-free/advanced-custom-fields
+          vendor/bin/phpunit
+
   js:
     name: JS (inspector rows)
     runs-on: ubuntu-latest

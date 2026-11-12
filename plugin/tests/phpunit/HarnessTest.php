@@ -13,14 +13,29 @@
 class HarnessTest extends Sdc_TestCase {
 
 	/**
-	 * WordPress really loaded, and it is the version the matrix claims.
+	 * WordPress really loaded, and it is not older than the header promises.
+	 *
+	 * The minimum is read from the plugin header instead of repeated here: a
+	 * literal is a second place to forget, and this test is the one that
+	 * decides whether the readme's `Requires at least` was ever executed.
+	 * `version_compare` rather than a float cast — `(float) '6.10'` is 6.1.
 	 */
-	public function test_wordpress_loaded() {
+	public function test_wordpress_meets_the_declared_minimum() {
 		global $wp_version;
 
 		$this->assertTrue( function_exists( 'do_action' ) );
 		$this->assertNotEmpty( $wp_version );
-		$this->assertGreaterThanOrEqual( 6.4, (float) $wp_version, "WordPress $wp_version is below the plugin's minimum" );
+
+		$header = get_file_data(
+			dirname( __DIR__, 2 ) . '/sdc-page-builder.php',
+			array( 'requires_at_least' => 'Requires at least' )
+		);
+
+		$this->assertNotEmpty( $header['requires_at_least'], 'the plugin header declares no minimum WordPress version' );
+		$this->assertTrue(
+			version_compare( $wp_version, $header['requires_at_least'], '>=' ),
+			sprintf( 'WordPress %s is below the declared minimum %s', $wp_version, $header['requires_at_least'] )
+		);
 	}
 
 	/**
